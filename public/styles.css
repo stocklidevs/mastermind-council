@@ -549,6 +549,18 @@ select {
   gap: 10px;
 }
 
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.export-print {
+  color: #1b1d1f;
+  background: #fffdf8;
+}
+
 .history-heading h3,
 .history-row h4 {
   margin-bottom: 0;

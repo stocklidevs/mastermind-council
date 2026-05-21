@@ -1,7 +1,7 @@
 # Mastermind
 
-![Tests](https://img.shields.io/badge/tests-160%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.24.3-blue)
+![Tests](https://img.shields.io/badge/tests-162%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.24.4-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -124,6 +124,9 @@ Current artifacts:
 - [Public Repo Hardening Spec](specs/032-public-repo-hardening/spec.md)
 - [Public Repo Hardening Plan](specs/032-public-repo-hardening/plan.md)
 - [Public Repo Hardening Tasks](specs/032-public-repo-hardening/tasks.md)
+- [PDF Consultation Export Spec](specs/033-pdf-consultation-export/spec.md)
+- [PDF Consultation Export Plan](specs/033-pdf-consultation-export/plan.md)
+- [PDF Consultation Export Tasks](specs/033-pdf-consultation-export/tasks.md)
 
 ## Core Ideas
 
@@ -188,6 +191,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Built-in provider catalogs now include GPT-5.5, Claude Sonnet 4.6, and Grok 4 as selectable mentor and synthesis model options.
 - Live real mentors now generate persona-aware pre/post speaking stage directions through their provider/model, with safe local fallback text.
 - Public repository metadata now includes an MIT license, synced package version, and generic 1Password smoke-test examples.
+- Council discussions can now be exported through a browser print-to-PDF view for the latest completed session or saved consultations.
 - Prompt/input cache capability display for provider/model combinations that support it.
 - Saved sessions and council presets.
 
@@ -315,6 +319,7 @@ Expected early workflow:
 29. Add frontier model catalog entries. Done for GPT-5.5, Claude Sonnet 4.6, and Grok 4.
 30. Add roleplayed live actions. Done for provider-authored pre/post live real stage directions with fallback safety.
 31. Harden public repository metadata. Done for MIT licensing, synced package metadata, and generic smoke-test secret references.
+32. Add PDF consultation export. Done for print-to-PDF export of current and saved council discussions.
 
 ## License
 

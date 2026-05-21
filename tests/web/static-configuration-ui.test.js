@@ -42,6 +42,9 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /data-clear-session-history/);
   assert.match(appJs, /data-open-consultation/);
   assert.match(appJs, /data-delete-consultation/);
+  assert.match(appJs, /data-export-current-consultation/);
+  assert.match(appJs, /data-export-consultation/);
+  assert.match(appJs, /buildConsultationPdfHtml/);
   assert.match(appJs, /CONSULTATIONS_STORAGE_KEY/);
   assert.match(appJs, /appendConsultationExchange/);
   assert.match(appJs, /buildFollowUpQuestion/);
@@ -71,6 +74,7 @@ test('styles cache and secret warning states', () => {
   assert.match(stylesCss, /\.mentor-editor/);
   assert.match(stylesCss, /\.stick-icon/);
   assert.match(stylesCss, /\.toggle-control/);
+  assert.match(stylesCss, /\.export-print/);
 });
 
 test('defines persistent workspace layout affordances', () => {

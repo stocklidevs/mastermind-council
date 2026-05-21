@@ -43,6 +43,7 @@ import {
   createLiveCouncilViewState,
   validateClarificationAnswer
 } from '/src/web/live-view.js';
+import { buildConsultationPdfHtml, buildCurrentConsultationExport } from '/src/web/pdf-export.js';
 
 const form = document.querySelector('#question-form');
 const input = document.querySelector('#question-input');
@@ -382,7 +383,10 @@ function renderSessionSettings() {
       <div class="session-history">
         <div class="history-heading">
           <h3>Saved consultations</h3>
-          <button type="button" data-save-consultation ${lastSessionExchange ? '' : 'disabled'}>Save current</button>
+          <div class="history-actions">
+            <button type="button" data-save-consultation ${lastSessionExchange ? '' : 'disabled'}>Save current</button>
+            <button type="button" data-export-current-consultation ${lastSessionExchange ? '' : 'disabled'}>Export PDF</button>
+          </div>
         </div>
         <div class="history-list">
           ${
@@ -395,6 +399,7 @@ function renderSessionSettings() {
                         <p>${escapeHtml(record.mode)} - ${record.exchanges?.length ?? 0} exchanges - ${escapeHtml(record.updatedAt)}</p>
                         <div class="preset-actions">
                           <button type="button" data-open-consultation="${escapeHtml(record.id)}">Open</button>
+                          <button type="button" data-export-consultation="${escapeHtml(record.id)}">Export PDF</button>
                           <button type="button" data-delete-consultation="${escapeHtml(record.id)}">Delete</button>
                         </div>
                       </article>
@@ -1214,6 +1219,31 @@ function deleteConsultation(id) {
   renderDrawer();
 }
 
+function exportConsultationPdf(record) {
+  const exportWindow = window.open('', '_blank');
+  if (!exportWindow) {
+    error.textContent = 'The browser blocked the PDF export window.';
+    return;
+  }
+  exportWindow.document.open();
+  exportWindow.document.write(buildConsultationPdfHtml(record));
+  exportWindow.document.close();
+  exportWindow.focus();
+  exportWindow.setTimeout(() => exportWindow.print(), 150);
+}
+
+function exportCurrentConsultationPdf() {
+  if (!lastSessionExchange) return;
+  exportConsultationPdf(
+    buildCurrentConsultationExport({
+      mode: runtimeMode.value,
+      mentors,
+      sessionSettings,
+      exchange: lastSessionExchange
+    })
+  );
+}
+
 function buildFollowUpQuestion(question) {
   const consultation = consultations.find((item) => item.id === activeConsultationId);
   if (!consultation?.exchanges?.length) return question;
@@ -1472,6 +1502,18 @@ drawerContent.addEventListener('click', (event) => {
 
   if (event.target.dataset.saveConsultation !== undefined) {
     saveCurrentConsultation();
+    return;
+  }
+
+  if (event.target.dataset.exportCurrentConsultation !== undefined) {
+    exportCurrentConsultationPdf();
+    return;
+  }
+
+  const exportConsultationId = event.target.dataset.exportConsultation;
+  if (exportConsultationId) {
+    const record = consultations.find((item) => item.id === exportConsultationId);
+    if (record) exportConsultationPdf(record);
     return;
   }
 
