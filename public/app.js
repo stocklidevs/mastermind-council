@@ -275,13 +275,13 @@ function loadTtsSettings() {
   try {
     const parsed = JSON.parse(localStorage.getItem(TTS_SETTINGS_STORAGE_KEY) ?? 'null');
     return {
-      enabled: Boolean(parsed?.enabled),
+      enabled: parsed?.enabled !== false,
       model: parsed?.model || 'gpt-4o-mini-tts',
       voice: OPENAI_TTS_VOICES.includes(parsed?.voice) ? parsed.voice : 'marin',
       speed: Number.isFinite(Number(parsed?.speed)) ? Number(parsed.speed) : 1
     };
   } catch {
-    return { enabled: false, model: 'gpt-4o-mini-tts', voice: 'marin', speed: 1 };
+    return { enabled: true, model: 'gpt-4o-mini-tts', voice: 'marin', speed: 1 };
   }
 }
 

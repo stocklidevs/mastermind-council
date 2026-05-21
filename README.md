@@ -1,7 +1,7 @@
 # Mastermind
 
 ![Tests](https://img.shields.io/badge/tests-177%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.6-blue)
+![Version](https://img.shields.io/badge/version-0.25.7-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -196,6 +196,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Public repository metadata now includes an MIT license, synced package version, and generic 1Password smoke-test examples.
 - Council discussions can now be exported through a browser print-to-PDF view for the latest completed session or saved consultations.
 - OpenAI TTS playback can now be enabled from Session settings, with global and per-mentor voice selection, server-side secret resolution, and queued audio for completed live mentor utterances.
+- OpenAI TTS playback is now on by default for fresh sessions, while the Session settings toggle still lets you turn it off.
 - Live real sessions now pass the provider secret references configured in the drawer through a short-lived local config id, and mentor tiles show the sanitized error reason when a provider cannot speak.
 - Provider secret settings now persist locally, and the Providers tab includes a 1Password defaults helper for applying generic provider key names across configured providers.
 - Local-only 1Password defaults can now be restored from ignored `public/local-secret-defaults.json`, so public Git history stays generic while a personal machine can keep its real vault, account, and item names working.
@@ -256,7 +257,7 @@ Live mock council mode streams mentor lifecycle and token events. The UI uses th
 
 Live mock and supported live real sessions can also pause during a preamble before turn 1 when mentors need clarifying context. The same answer panel is used, and the resumed council starts its first debate turn from the clarified context. In live real mode, the clarification answer is sent back through the server-sent real provider stream, preserving the existing transcript and appending real mentor tokens. This preamble is enabled by default and can be disabled from Session settings.
 
-OpenAI voice playback is optional and disabled by default. Enable it from Session settings, choose a default OpenAI voice and speed, and optionally override the OpenAI voice per mentor in Mentors settings. The UI streams text first; after a mentor finishes speaking, the local Node server calls `/api/tts/openai` with the completed public utterance and returns AI-generated audio. The OpenAI key is resolved server-side from the configured environment variable or 1Password reference and is never stored in the browser.
+OpenAI voice playback is optional and enabled by default for fresh sessions. You can turn it off from Session settings, choose a default OpenAI voice and speed, and optionally override the OpenAI voice per mentor in Mentors settings. The UI streams text first; after a mentor finishes speaking, the local Node server calls `/api/tts/openai` with the completed public utterance and returns AI-generated audio. The OpenAI key is resolved server-side from the configured environment variable or 1Password reference and is never stored in the browser.
 
 Provider API keys can be set from the Providers tab. Use the 1Password defaults helper with your vault and optional account domain to apply references such as `op://Your Vault/OpenAI API Key/credential`, `op://Your Vault/Anthropic API Key/credential`, and `op://Your Vault/xAI API Key/credential` across configured providers. The references and account domain are stored locally in the browser; resolved keys remain server-side only.
 
