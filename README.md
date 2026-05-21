@@ -1,7 +1,7 @@
 # Mastermind
 
-![Tests](https://img.shields.io/badge/tests-173%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.4-blue)
+![Tests](https://img.shields.io/badge/tests-176%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.25.5-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -198,6 +198,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - OpenAI TTS playback can now be enabled from Session settings, with global and per-mentor voice selection, server-side secret resolution, and queued audio for completed live mentor utterances.
 - Live real sessions now pass the provider secret references configured in the drawer through a short-lived local config id, and mentor tiles show the sanitized error reason when a provider cannot speak.
 - Provider secret settings now persist locally, and the Providers tab includes a 1Password defaults helper for applying generic provider key names across configured providers.
+- Local-only 1Password defaults can now be restored from ignored `public/local-secret-defaults.json`, so public Git history stays generic while a personal machine can keep its real vault, account, and item names working.
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Prompt/input cache capability display for provider/model combinations that support it.
@@ -257,6 +258,8 @@ Live mock and supported live real sessions can also pause during a preamble befo
 OpenAI voice playback is optional and disabled by default. Enable it from Session settings, choose a default OpenAI voice and speed, and optionally override the OpenAI voice per mentor in Mentors settings. The UI streams text first; after a mentor finishes speaking, the local Node server calls `/api/tts/openai` with the completed public utterance and returns AI-generated audio. The OpenAI key is resolved server-side from the configured environment variable or 1Password reference and is never stored in the browser.
 
 Provider API keys can be set from the Providers tab. Use the 1Password defaults helper with your vault and optional account domain to apply references such as `op://Your Vault/OpenAI API Key/credential`, `op://Your Vault/Anthropic API Key/credential`, and `op://Your Vault/xAI API Key/credential` across configured providers. The references and account domain are stored locally in the browser; resolved keys remain server-side only.
+
+For a private local machine, copy `public/local-secret-defaults.example.json` to `public/local-secret-defaults.json` and put your real vault, account, and item names there. That file is ignored by Git. When present, the app loads it on startup and restores the local 1Password references that should be used by the Providers tab.
 
 Run local provider smoke checks:
 

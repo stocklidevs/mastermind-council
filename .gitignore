@@ -9,3 +9,4 @@ coverage/
 Thumbs.db
 *.tmp
 *.swp
+public/local-secret-defaults.json

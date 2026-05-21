@@ -44,6 +44,11 @@ import {
   validateClarificationAnswer
 } from '/src/web/live-view.js';
 import { buildConsultationPdfHtml, buildCurrentConsultationExport } from '/src/web/pdf-export.js';
+import {
+  applyLocalSecretDefaults,
+  buildOnePasswordReferenceFromDefaults,
+  normalizeLocalSecretDefaults
+} from '/src/config/local-secret-defaults.js';
 
 const form = document.querySelector('#question-form');
 const input = document.querySelector('#question-input');
@@ -118,6 +123,7 @@ let transcriptShouldAutoScroll = true;
 let speechQueue = [];
 let speechIsPlaying = false;
 let activeAudio = null;
+let localSecretDefaults = null;
 const LIVE_EVENT_TYPES = [
   'session.started',
   'preamble.started',
@@ -140,7 +146,7 @@ const LIVE_EVENT_TYPES = [
   'session.error',
   'mentor.error'
 ];
-const secretReferences = loadSecretReferences();
+let secretReferences = loadSecretReferences();
 
 function setSessionStatus(label, { initiating = false } = {}) {
   status.textContent = label;
@@ -248,6 +254,21 @@ function loadSecretReferences() {
 
 function persistSecretReferences() {
   localStorage.setItem(SECRET_REFERENCES_STORAGE_KEY, JSON.stringify(secretReferences));
+}
+
+async function hydrateLocalSecretDefaults() {
+  try {
+    const response = await fetch('/local-secret-defaults.json', { cache: 'no-store' });
+    if (!response.ok) return;
+    localSecretDefaults = normalizeLocalSecretDefaults(await response.json());
+    if (!localSecretDefaults) return;
+    secretReferences = applyLocalSecretDefaults(secretReferences, effectiveProviders(), localSecretDefaults);
+    persistSecretReferences();
+    renderConfiguration();
+    setSessionStatus('Local 1Password defaults loaded');
+  } catch {
+    localSecretDefaults = null;
+  }
 }
 
 function loadTtsSettings() {
@@ -554,19 +575,21 @@ function renderProviderSettings() {
         <p class="eyebrow">Providers</p>
         <h2>Catalog and keys</h2>
       </div>
-      <form class="drawer-form secret-preset-form" data-apply-mastermind-secret-preset>
-        <h3>1Password defaults</h3>
-        <label>
-          <span>Vault</span>
-          <input name="vaultName" value="Your Vault" />
-        </label>
-        <label>
-          <span>Account</span>
-          <input name="accountName" placeholder="your-team.1password.com" value="${escapeHtml(ONE_PASSWORD_ACCOUNT)}" />
-        </label>
-        <button type="submit">Apply Mastermind key names</button>
-        <p class="drawer-note">Sets every non-local provider to 1Password using the pattern op://Vault/Provider API Key/credential.</p>
-      </form>
+        <form class="drawer-form secret-preset-form" data-apply-mastermind-secret-preset>
+          <h3>1Password defaults</h3>
+          <label>
+            <span>Vault</span>
+            <input name="vaultName" value="${escapeHtml(localSecretDefaults?.vaultName ?? 'Your Vault')}" />
+          </label>
+          <label>
+            <span>Account</span>
+            <input name="accountName" placeholder="your-team.1password.com" value="${escapeHtml(
+              localSecretDefaults?.accountName ?? ONE_PASSWORD_ACCOUNT
+            )}" />
+          </label>
+          <button type="submit">Apply Mastermind key names</button>
+          <p class="drawer-note">Sets every non-local provider to 1Password using local defaults when present, otherwise public-safe generic key names.</p>
+        </form>
       <div class="provider-list">
         ${effectiveProviders().map(renderProviderRow).join('')}
       </div>
@@ -1057,18 +1080,10 @@ function renderLiveState(state) {
 }
 
 function buildMastermindOnePasswordReference(provider, vaultName) {
-  const itemNames = {
-    openai: 'OpenAI API Key',
-    anthropic: 'Anthropic API Key',
-    xai: 'xAI API Key',
-    novita: 'Novita API Key',
-    groq: 'Groq API Key',
-    gemini: 'Gemini API Key',
-    openrouter: 'OpenRouter API Key'
-  };
-  const vault = String(vaultName ?? 'Your Vault').trim() || 'Your Vault';
-  const item = itemNames[provider.id] ?? `${provider.name} API Key`;
-  return `op://${vault}/${item}/credential`;
+  return buildOnePasswordReferenceFromDefaults(provider, {
+    ...localSecretDefaults,
+    vaultName: String(vaultName ?? localSecretDefaults?.vaultName ?? 'Your Vault').trim() || 'Your Vault'
+  });
 }
 
 function queueMentorSpeech(event) {
@@ -1898,13 +1913,18 @@ drawerContent.addEventListener('submit', (event) => {
 
   if (event.target.dataset.applyMastermindSecretPreset !== undefined) {
     const vaultName = data.vaultName;
+    const defaults = normalizeLocalSecretDefaults({
+      ...localSecretDefaults,
+      vaultName,
+      accountName: data.accountName || localSecretDefaults?.accountName || ONE_PASSWORD_ACCOUNT
+    });
     for (const provider of effectiveProviders()) {
       if (provider.id === 'local' || !provider.secretLabel) continue;
       secretReferences[provider.id] = {
         providerId: provider.id,
         mode: 'one-password',
-        reference: buildMastermindOnePasswordReference(provider, vaultName),
-        account: data.accountName || ONE_PASSWORD_ACCOUNT
+        reference: buildOnePasswordReferenceFromDefaults(provider, defaults),
+        account: defaults?.accountName || ONE_PASSWORD_ACCOUNT
       };
     }
     persistSecretReferences();
@@ -1932,3 +1952,4 @@ drawerContent.addEventListener('submit', (event) => {
 
 activateWorkspacePanel('deliberation');
 renderConfiguration();
+void hydrateLocalSecretDefaults();
