@@ -1,0 +1,14 @@
+{
+  "name": "mastermind",
+  "version": "0.24.3",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "council:real": "node scripts/council-real.js",
+    "provider:smoke": "node scripts/provider-smoke.js",
+    "provider:stream-smoke": "node scripts/provider-stream-smoke.js",
+    "serve": "node scripts/serve-static.js",
+    "test": "node --test"
+  }
+}

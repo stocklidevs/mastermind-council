@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mastermind</title>
+    <link rel="stylesheet" href="/public/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="app-kicker">Local council</p>
+          <h1>Mastermind</h1>
+        </div>
+        <div class="topbar-actions">
+          <span id="session-status" class="session-status">Ready</span>
+          <button id="settings-toggle" class="settings-toggle" type="button" aria-label="Open settings">
+            Menu
+          </button>
+          <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">
+            Dark
+          </button>
+        </div>
+      </header>
+
+      <nav class="workspace-tab-bar" aria-label="Workspace panels">
+        <button type="button" class="workspace-tab is-active" data-workspace-tab="council">Council</button>
+        <button type="button" class="workspace-tab" data-workspace-tab="deliberation">Deliberation</button>
+        <button type="button" class="workspace-tab" data-workspace-tab="synthesis">Synthesis</button>
+      </nav>
+
+      <div class="workspace-status-strip" aria-live="polite">
+        <span id="mobile-stick-status">Speaking stick rests on the table.</span>
+      </div>
+
+      <main class="workspace">
+        <aside class="council-panel workspace-panel is-active-panel" data-workspace-panel="council" aria-label="Council roster">
+          <div class="panel-heading">
+            <p class="eyebrow">Council</p>
+            <h2>Mentors</h2>
+          </div>
+          <div id="council-roster" class="council-roster"></div>
+        </aside>
+
+        <section class="table-panel workspace-panel" data-workspace-panel="deliberation" aria-label="Council deliberation">
+          <form id="question-form" class="question-form">
+            <label for="question-input">Bring a question to the table</label>
+            <div class="runtime-row">
+              <label for="runtime-mode">Council mode</label>
+              <select id="runtime-mode" name="runtime-mode">
+                <option value="mock">Mock council</option>
+                <option value="live-mock">Live mock council</option>
+                <option value="live-real">Live real council</option>
+                <option value="real">Real council</option>
+              </select>
+            </div>
+            <div class="question-row">
+              <textarea
+                id="question-input"
+                name="question"
+                rows="3"
+                placeholder="What decision deserves the council's attention?"
+              ></textarea>
+              <button type="submit">Ask council</button>
+            </div>
+            <p id="question-error" class="form-error" role="status"></p>
+          </form>
+
+          <div class="transcript-header">
+            <div>
+              <p class="eyebrow">Deliberation table</p>
+              <h2>Rounds</h2>
+            </div>
+            <p id="stick-status" class="stick-status">Speaking stick rests on the table.</p>
+          </div>
+
+          <div id="transcript" class="transcript empty-state">
+            Ask a question to convene the council.
+          </div>
+        </section>
+
+        <aside class="synthesis-panel workspace-panel" data-workspace-panel="synthesis" aria-label="Final synthesis">
+          <div class="panel-heading">
+            <p class="eyebrow">Synthesis</p>
+            <h2>Counsel</h2>
+            <p id="synthesis-model-label" class="synthesis-model-label">Synthesis by OpenAI / GPT-4.1</p>
+          </div>
+          <div id="synthesis" class="synthesis empty-state">
+            The council's final counsel will appear here.
+          </div>
+        </aside>
+      </main>
+
+      <aside id="settings-drawer" class="settings-drawer" aria-label="Settings" hidden>
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow">Configuration</p>
+            <h2>Settings</h2>
+          </div>
+          <button id="settings-close" class="drawer-close" type="button" aria-label="Close settings">
+            Close
+          </button>
+        </div>
+        <nav id="drawer-tabs" class="drawer-tabs" aria-label="Settings sections"></nav>
+        <div id="drawer-content" class="drawer-content"></div>
+      </aside>
+    </div>
+
+    <script type="module" src="/public/app.js"></script>
+  </body>
+</html>

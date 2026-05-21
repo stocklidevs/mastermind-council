@@ -1,0 +1,93 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+
+const indexHtml = await readFile(new URL('../../public/index.html', import.meta.url), 'utf8');
+const appJs = await readFile(new URL('../../public/app.js', import.meta.url), 'utf8');
+const stylesCss = await readFile(new URL('../../public/styles.css', import.meta.url), 'utf8');
+
+test('renders provider and mentor configuration landmarks', () => {
+  assert.match(indexHtml, /id="settings-toggle"/);
+  assert.match(indexHtml, /id="runtime-mode"/);
+  assert.match(indexHtml, /id="settings-drawer"/);
+  assert.match(indexHtml, /Live real council/);
+  assert.match(indexHtml, /id="drawer-tabs"/);
+  assert.match(indexHtml, /id="drawer-content"/);
+  assert.doesNotMatch(indexHtml, /class="configuration-panel"/);
+});
+
+test('wires safe configuration helpers into the browser app', () => {
+  assert.match(appJs, /fetch\('\/api\/council\/real'/);
+  assert.match(appJs, /EventSource/);
+  assert.match(appJs, /applyLiveCouncilEvent/);
+  assert.match(appJs, /createClarificationResumeEvents/);
+  assert.match(appJs, /data-clarification-form/);
+  assert.match(appJs, /runtimeMode/);
+  assert.match(appJs, /addCustomProvider/);
+  assert.match(appJs, /addCustomModel/);
+  assert.match(appJs, /buildSettingsDrawerViewModel/);
+  assert.match(appJs, /buildSecretSettingsViewModel/);
+  assert.match(appJs, /buildSessionSettingsViewModel/);
+  assert.match(appJs, /buildCouncilPresetSettingsViewModel/);
+  assert.match(appJs, /applyCouncilPreset/);
+  assert.match(appJs, /data-session-max-turns/);
+  assert.match(appJs, /data-session-preamble-enabled/);
+  assert.match(appJs, /data-session-synthesis-provider/);
+  assert.match(appJs, /data-session-synthesis-model/);
+  assert.match(appJs, /synthesisProviderId=/);
+  assert.match(appJs, /synthesisModelId=/);
+  assert.match(appJs, /data-council-preset/);
+  assert.match(appJs, /data-save-council-preset/);
+  assert.match(appJs, /data-delete-council-preset/);
+  assert.match(appJs, /data-clear-session-history/);
+  assert.match(appJs, /data-open-consultation/);
+  assert.match(appJs, /data-delete-consultation/);
+  assert.match(appJs, /CONSULTATIONS_STORAGE_KEY/);
+  assert.match(appJs, /appendConsultationExchange/);
+  assert.match(appJs, /buildFollowUpQuestion/);
+  assert.match(appJs, /saveSessionHistoryRecord/);
+  assert.match(appJs, /CURRENT_MENTORS_STORAGE_KEY/);
+  assert.match(appJs, /persistMentors/);
+  assert.match(appJs, /members=/);
+  assert.match(appJs, /clarificationAnswer=/);
+  assert.match(appJs, /runLiveRealClarificationResume/);
+  assert.match(appJs, /Next actions/);
+  assert.match(appJs, /Mentor grounding/);
+  assert.match(appJs, /Unresolved questions/);
+  assert.match(appJs, /localStorage/);
+  assert.match(appJs, /updateMentorModel/);
+  assert.match(appJs, /updateMentorCharacteristics/);
+  assert.match(appJs, /data-mentor-identity/);
+  assert.match(appJs, /buildPromptProfilePreview/);
+  assert.match(appJs, /transcriptShouldAutoScroll/);
+  assert.match(appJs, /scrollTranscriptIfNeeded/);
+});
+
+test('styles cache and secret warning states', () => {
+  assert.match(stylesCss, /\.settings-drawer/);
+  assert.match(stylesCss, /\.drawer-tabs/);
+  assert.match(stylesCss, /\.cache-pill/);
+  assert.match(stylesCss, /\.secret-warning/);
+  assert.match(stylesCss, /\.mentor-editor/);
+  assert.match(stylesCss, /\.stick-icon/);
+  assert.match(stylesCss, /\.toggle-control/);
+});
+
+test('defines persistent workspace layout affordances', () => {
+  assert.match(indexHtml, /class="workspace-tab-bar"/);
+  assert.match(indexHtml, /data-workspace-tab="council"/);
+  assert.match(indexHtml, /data-workspace-tab="deliberation"/);
+  assert.match(indexHtml, /data-workspace-tab="synthesis"/);
+  assert.match(indexHtml, /class="workspace-status-strip"/);
+  assert.match(indexHtml, /id="synthesis-model-label"/);
+
+  assert.match(stylesCss, /height:\s*calc\(100vh/);
+  assert.match(stylesCss, /\.council-panel[\s\S]*?overflow:\s*hidden/);
+  assert.match(stylesCss, /\.council-roster[\s\S]*?overflow-y:\s*auto/);
+  assert.match(stylesCss, /\.table-panel[\s\S]*?overflow:\s*hidden/);
+  assert.match(stylesCss, /\.transcript-header[\s\S]*?position:\s*sticky/);
+  assert.match(stylesCss, /\.transcript[\s\S]*?overflow-y:\s*auto/);
+  assert.match(stylesCss, /\.synthesis-panel[\s\S]*?overflow:\s*hidden/);
+  assert.match(stylesCss, /\.synthesis[\s\S]*?overflow-y:\s*auto/);
+  assert.match(stylesCss, /@media \(max-width:\s*980px\)[\s\S]*?\.workspace-tab-bar[\s\S]*?display:\s*grid/);
+});
