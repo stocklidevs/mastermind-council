@@ -1,7 +1,7 @@
 # Mastermind
 
-![Tests](https://img.shields.io/badge/tests-171%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.3-blue)
+![Tests](https://img.shields.io/badge/tests-173%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.25.4-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -198,6 +198,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - OpenAI TTS playback can now be enabled from Session settings, with global and per-mentor voice selection, server-side secret resolution, and queued audio for completed live mentor utterances.
 - Live real sessions now pass the provider secret references configured in the drawer through a short-lived local config id, and mentor tiles show the sanitized error reason when a provider cannot speak.
 - Provider secret settings now persist locally, and the Providers tab includes a 1Password defaults helper for applying generic provider key names across configured providers.
+- The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Prompt/input cache capability display for provider/model combinations that support it.
 - Saved sessions and council presets.

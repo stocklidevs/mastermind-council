@@ -142,6 +142,11 @@ const LIVE_EVENT_TYPES = [
 ];
 const secretReferences = loadSecretReferences();
 
+function setSessionStatus(label, { initiating = false } = {}) {
+  status.textContent = label;
+  status.classList.toggle('is-initiating', initiating);
+}
+
 function effectiveProviders() {
   return getEffectiveProviders(catalogState);
 }
@@ -1097,7 +1102,7 @@ async function playNextSpeech() {
   speechIsPlaying = true;
   const item = speechQueue.shift();
   try {
-    status.textContent = `Generating voice for ${item.mentorName}`;
+    setSessionStatus(`Generating voice for ${item.mentorName}`);
     const response = await fetch('/api/tts/openai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1118,7 +1123,7 @@ async function playNextSpeech() {
     const audioBlob = await response.blob();
     const audioUrl = URL.createObjectURL(audioBlob);
     activeAudio = new Audio(audioUrl);
-    status.textContent = `${item.mentorName} voice playing`;
+    setSessionStatus(`${item.mentorName} voice playing`);
     await activeAudio.play();
     await new Promise((resolve) => {
       activeAudio.addEventListener('ended', resolve, { once: true });
@@ -1126,7 +1131,7 @@ async function playNextSpeech() {
     });
     URL.revokeObjectURL(audioUrl);
   } catch (voiceError) {
-    status.textContent = `Voice unavailable: ${voiceError.message}`;
+    setSessionStatus(`Voice unavailable: ${voiceError.message}`);
   } finally {
     activeAudio = null;
     speechIsPlaying = false;
@@ -1143,7 +1148,7 @@ function stopTtsPlayback() {
     activeAudio.currentTime = 0;
   }
   speechIsPlaying = false;
-  status.textContent = 'Voice stopped';
+  setSessionStatus('Voice stopped');
 }
 
 function publicOpenAiSecretReference() {
@@ -1175,7 +1180,7 @@ async function applyLiveEvents(events, { delayMs = 18 } = {}) {
     renderLiveState(liveState);
     queueMentorSpeech(event);
     if (event.type === 'mentor.token') {
-      status.textContent = `${event.payload.mentorName} is speaking`;
+      setSessionStatus(`${event.payload.mentorName} is speaking`);
     }
     if (delayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -1230,7 +1235,7 @@ function renderGroundingSection(items) {
 }
 
 async function runRealSession(question) {
-  status.textContent = 'Calling real council';
+  setSessionStatus('Calling real council', { initiating: true });
   const response = await fetch('/api/council/real', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1249,7 +1254,7 @@ async function runRealSession(question) {
   renderTranscript(model);
   renderSynthesis(model.synthesis);
   saveSessionHistoryFromViewModel(model, 'real');
-  status.textContent = 'Real session complete';
+  setSessionStatus('Real session complete');
   const stickLabel = firstContribution?.stickLabel ?? 'Speaking stick rests on the table.';
   stickStatus.textContent = stickLabel;
   mobileStickStatus.textContent = stickLabel;
@@ -1260,7 +1265,7 @@ async function runLiveMockSession(question) {
     liveSource.close();
   }
 
-  status.textContent = 'Council awakening';
+  setSessionStatus('Council awakening', { initiating: true });
   error.textContent = '';
   liveState = createLiveCouncilViewState(mentors, { originalQuestion: question });
   liveEvents = [];
@@ -1301,24 +1306,25 @@ function attachLiveSourceHandlers(source, { onComplete, onAwaitingClarification,
       liveState = applyLiveCouncilEvent(liveState, event);
       renderLiveState(liveState);
       queueMentorSpeech(event);
+      status.classList.remove('is-initiating');
 
       if (event.type === 'session.synthesized') {
-        status.textContent = 'Live session complete';
+        setSessionStatus('Live session complete');
         saveSessionHistoryFromLiveState(liveState, runtimeMode.value);
         source.close();
         liveSource = null;
         onComplete?.(event);
       } else if (event.type === 'turn.awaiting_clarification' || event.type === 'preamble.awaiting_clarification') {
-        status.textContent = 'Awaiting clarification';
+        setSessionStatus('Awaiting clarification');
         source.close();
         liveSource = null;
         onAwaitingClarification?.(event);
       } else if (event.type === 'mentor.token') {
-        status.textContent = `${event.payload.mentorName} is speaking`;
+        setSessionStatus(`${event.payload.mentorName} is speaking`);
       } else if (event.type === 'mentor.thinking') {
-        status.textContent = `${event.payload.mentorName} is thinking`;
+        setSessionStatus(`${event.payload.mentorName} is thinking`);
       } else if (event.type === 'session.error') {
-        status.textContent = 'Live session failed';
+        setSessionStatus('Live session failed');
         error.textContent = event.payload?.reason ?? 'The live council stream failed.';
         source.close();
         liveSource = null;
@@ -1329,7 +1335,7 @@ function attachLiveSourceHandlers(source, { onComplete, onAwaitingClarification,
 
   source.onerror = () => {
     if (!liveSource) return;
-    status.textContent = 'Live session interrupted';
+    setSessionStatus('Live session interrupted');
     error.textContent = 'The live council stream was interrupted.';
     source.close();
     liveSource = null;
@@ -1363,7 +1369,7 @@ async function runLiveRealClarificationResume(context) {
 }
 
 function runMockSession(question) {
-  status.textContent = 'Convening';
+  setSessionStatus('Convening', { initiating: true });
   const session = runCouncilSession(
     createCouncilSession({
       question,
@@ -1379,7 +1385,7 @@ function runMockSession(question) {
   renderTranscript(model);
   renderSynthesis(model.synthesis);
   saveSessionHistoryFromViewModel(model, 'mock');
-  status.textContent = 'Session complete';
+  setSessionStatus('Session complete');
   const stickLabel = firstContribution?.stickLabel ?? 'Speaking stick rests on the table.';
   stickStatus.textContent = stickLabel;
   mobileStickStatus.textContent = stickLabel;
@@ -1479,7 +1485,7 @@ function openConsultation(id) {
     : null;
   input.value = '';
   input.placeholder = `Follow up on: ${record.title}`;
-  status.textContent = `Consultation loaded: ${record.title}`;
+  setSessionStatus(`Consultation loaded: ${record.title}`);
   persistMentors();
   renderConfiguration();
 }
@@ -1550,7 +1556,7 @@ form.addEventListener('submit', async (event) => {
       runMockSession(questionForCouncil);
     }
   } catch (runError) {
-    status.textContent = 'Session failed';
+    setSessionStatus('Session failed');
     error.textContent = runError.message;
   } finally {
     pendingUserQuestion = null;
@@ -1572,7 +1578,7 @@ synthesis.addEventListener('submit', async (event) => {
 
   try {
     const context = buildClarificationResumeContext(liveState, validation.answer);
-    status.textContent = 'Council resumes';
+    setSessionStatus('Council resumes', { initiating: true });
     if (runtimeMode.value === 'live-real') {
       await runLiveRealClarificationResume(context);
     } else {
@@ -1586,7 +1592,7 @@ synthesis.addEventListener('submit', async (event) => {
         nextTurnNumber: context.nextTurnNumber
       });
       await applyLiveEvents(events);
-      status.textContent = 'Live session complete';
+      setSessionStatus('Live session complete');
       if (liveState.status === 'synthesized') saveSessionHistoryFromLiveState(liveState, runtimeMode.value);
     }
   } catch (resumeError) {

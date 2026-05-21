@@ -90,6 +90,15 @@ test('styles cache and secret warning states', () => {
   assert.match(stylesCss, /\.export-print/);
 });
 
+test('illuminates the session status while the council is initiating', () => {
+  assert.match(appJs, /function setSessionStatus/);
+  assert.match(appJs, /setSessionStatus\('Council awakening', \{ initiating: true \}\)/);
+  assert.match(appJs, /setSessionStatus\('Calling real council', \{ initiating: true \}\)/);
+  assert.match(appJs, /status\.classList\.remove\('is-initiating'\)/);
+  assert.match(stylesCss, /\.session-status\.is-initiating::after/);
+  assert.match(stylesCss, /@keyframes status-sweep/);
+});
+
 test('defines persistent workspace layout affordances', () => {
   assert.match(indexHtml, /class="workspace-tab-bar"/);
   assert.match(indexHtml, /data-workspace-tab="council"/);
