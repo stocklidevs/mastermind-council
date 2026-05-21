@@ -1,7 +1,7 @@
 # Mastermind
 
-![Tests](https://img.shields.io/badge/tests-176%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.5-blue)
+![Tests](https://img.shields.io/badge/tests-177%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.25.6-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -199,6 +199,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Live real sessions now pass the provider secret references configured in the drawer through a short-lived local config id, and mentor tiles show the sanitized error reason when a provider cannot speak.
 - Provider secret settings now persist locally, and the Providers tab includes a 1Password defaults helper for applying generic provider key names across configured providers.
 - Local-only 1Password defaults can now be restored from ignored `public/local-secret-defaults.json`, so public Git history stays generic while a personal machine can keep its real vault, account, and item names working.
+- The local 1Password defaults loader now fetches the file from the served `/public/` path, so startup restores provider references instead of leaving stale generic references in place.
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Prompt/input cache capability display for provider/model combinations that support it.

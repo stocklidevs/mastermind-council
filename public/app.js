@@ -258,7 +258,7 @@ function persistSecretReferences() {
 
 async function hydrateLocalSecretDefaults() {
   try {
-    const response = await fetch('/local-secret-defaults.json', { cache: 'no-store' });
+    const response = await fetch('/public/local-secret-defaults.json', { cache: 'no-store' });
     if (!response.ok) return;
     localSecretDefaults = normalizeLocalSecretDefaults(await response.json());
     if (!localSecretDefaults) return;

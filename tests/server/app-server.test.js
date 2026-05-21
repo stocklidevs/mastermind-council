@@ -60,3 +60,20 @@ test('serves live council event stream', async () => {
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('serves local secret defaults from the public folder when present', async () => {
+  const server = createAppServer({ root: process.cwd(), logger: silentLogger });
+  await new Promise((resolve) => server.listen(0, resolve));
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://localhost:${port}/public/local-secret-defaults.example.json`);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+    assert.equal(payload.vaultName, 'Your Vault');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
