@@ -37,6 +37,26 @@ test('resolves 1Password reference through an injectable runner without returnin
   assert.equal(result.masked, 'sk-...cret');
 });
 
+test('passes account to op read when one is configured', async () => {
+  const result = await resolveOnePasswordReference('op://Team Vault/xAI API Key/credential', {
+    opPath: 'op',
+    account: 'example.1password.com',
+    runner: async ({ command, args }) => {
+      assert.equal(command, 'op');
+      assert.deepEqual(args, [
+        'read',
+        'op://Team Vault/xAI API Key/credential',
+        '--account',
+        'example.1password.com'
+      ]);
+      return { exitCode: 0, stdout: 'xai-secret-value', stderr: '' };
+    }
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.getSecret(), 'xai-secret-value');
+});
+
 test('finds bundled 1Password CLI candidate when PATH lookup fails', async () => {
   const result = await findOnePasswordCli({
     env: {

@@ -485,6 +485,33 @@ select {
   padding-top: 12px;
 }
 
+.tts-settings {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  background: var(--surface-muted);
+}
+
+.tts-settings h3 {
+  margin-bottom: 0;
+  font-size: 0.9rem;
+}
+
+.tts-settings button {
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.voice-status {
+  padding-top: 2px;
+}
+
 .preset-settings h3,
 .preset-row h4 {
   margin-bottom: 0;

@@ -70,11 +70,30 @@ const USER_PRESETS_STORAGE_KEY = 'mastermind.userCouncilPresets';
 const SESSION_HISTORY_STORAGE_KEY = 'mastermind.sessionHistory';
 const CONSULTATIONS_STORAGE_KEY = 'mastermind.consultations';
 const CURRENT_MENTORS_STORAGE_KEY = 'mastermind.currentMentors';
+const SECRET_REFERENCES_STORAGE_KEY = 'mastermind.secretReferences';
+const TTS_SETTINGS_STORAGE_KEY = 'mastermind.ttsSettings';
+const ONE_PASSWORD_ACCOUNT = '';
+const OPENAI_TTS_VOICES = [
+  'alloy',
+  'ash',
+  'ballad',
+  'coral',
+  'echo',
+  'fable',
+  'nova',
+  'onyx',
+  'sage',
+  'shimmer',
+  'verse',
+  'marin',
+  'cedar'
+];
 const LEGACY_MODEL_IDS = {
   'anthropic:claude-sonnet-4': 'claude-sonnet-4-20250514'
 };
 let catalogState = createProviderCatalogState();
 let mentors = loadCurrentMentors();
+let ttsSettings = loadTtsSettings();
 let userPresets = loadUserPresets();
 let sessionHistory = loadSessionHistory();
 let consultations = loadConsultations();
@@ -96,6 +115,9 @@ let liveSource = null;
 let liveState = null;
 let liveEvents = [];
 let transcriptShouldAutoScroll = true;
+let speechQueue = [];
+let speechIsPlaying = false;
+let activeAudio = null;
 const LIVE_EVENT_TYPES = [
   'session.started',
   'preamble.started',
@@ -118,16 +140,7 @@ const LIVE_EVENT_TYPES = [
   'session.error',
   'mentor.error'
 ];
-const secretReferences = Object.fromEntries(
-  providers.map((provider) => [
-    provider.id,
-    {
-      providerId: provider.id,
-      mode: 'environment',
-      reference: provider.secretLabel ?? ''
-    }
-  ])
-);
+const secretReferences = loadSecretReferences();
 
 function effectiveProviders() {
   return getEffectiveProviders(catalogState);
@@ -190,6 +203,66 @@ function persistMentors() {
   localStorage.setItem(CURRENT_MENTORS_STORAGE_KEY, JSON.stringify(mentors));
 }
 
+function defaultSecretReferences() {
+  return Object.fromEntries(
+    providers.map((provider) => [
+      provider.id,
+      {
+        providerId: provider.id,
+        mode: 'environment',
+        reference: provider.secretLabel ?? '',
+        account: ''
+      }
+    ])
+  );
+}
+
+function loadSecretReferences() {
+  const defaults = defaultSecretReferences();
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SECRET_REFERENCES_STORAGE_KEY) ?? '{}');
+    if (!parsed || typeof parsed !== 'object') return defaults;
+    return Object.fromEntries(
+      Object.entries(defaults).map(([providerId, fallback]) => {
+        const saved = parsed[providerId];
+        return [
+          providerId,
+          {
+            providerId,
+            mode: saved?.mode === 'one-password' ? 'one-password' : 'environment',
+            reference: String(saved?.reference ?? fallback.reference),
+            account: String(saved?.account ?? fallback.account ?? '')
+          }
+        ];
+      })
+    );
+  } catch {
+    return defaults;
+  }
+}
+
+function persistSecretReferences() {
+  localStorage.setItem(SECRET_REFERENCES_STORAGE_KEY, JSON.stringify(secretReferences));
+}
+
+function loadTtsSettings() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TTS_SETTINGS_STORAGE_KEY) ?? 'null');
+    return {
+      enabled: Boolean(parsed?.enabled),
+      model: parsed?.model || 'gpt-4o-mini-tts',
+      voice: OPENAI_TTS_VOICES.includes(parsed?.voice) ? parsed.voice : 'marin',
+      speed: Number.isFinite(Number(parsed?.speed)) ? Number(parsed.speed) : 1
+    };
+  } catch {
+    return { enabled: false, model: 'gpt-4o-mini-tts', voice: 'marin', speed: 1 };
+  }
+}
+
+function persistTtsSettings() {
+  localStorage.setItem(TTS_SETTINGS_STORAGE_KEY, JSON.stringify(ttsSettings));
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -205,12 +278,13 @@ function renderRoster(members, activeSpeakerId) {
       const active = member.id === activeSpeakerId || member.hasStick;
       const providerLabel = member.providerName ? `${member.providerName} / ${member.modelName}` : member.role;
       const state = member.state ? formatMentorState(member.state) : active ? 'Holding stick' : 'Listening';
+      const detail = member.error ? ` - ${member.error}` : '';
       return `
         <article class="mentor-row ${active ? 'is-active' : ''} ${member.state ? `state-${escapeHtml(member.state)}` : ''}">
           <div class="voice-dot" aria-hidden="true"></div>
           <div>
             <h3>${escapeHtml(member.name)}</h3>
-            <p>${escapeHtml(member.role)} - ${escapeHtml(providerLabel)}</p>
+            <p>${escapeHtml(member.role)} - ${escapeHtml(providerLabel)}${escapeHtml(detail)}</p>
           </div>
           <span class="mentor-state">${member.hasStick ? '<span class="stick-icon" aria-hidden="true"></span>' : ''}${escapeHtml(
             state
@@ -303,6 +377,38 @@ function renderSessionSettings() {
         />
       </label>
       <p class="drawer-note">When enabled, mentors may ask clarifying questions before the first turn.</p>
+      <div class="tts-settings">
+        <h3>Voice playback</h3>
+        <label class="drawer-control toggle-control">
+          <span>OpenAI TTS</span>
+          <input
+            type="checkbox"
+            ${ttsSettings.enabled ? 'checked' : ''}
+            data-session-tts-enabled
+          />
+        </label>
+        <label class="drawer-control">
+          <span>Default voice</span>
+          <select data-session-tts-voice>
+            ${OPENAI_TTS_VOICES.map(
+              (voice) => `<option value="${escapeHtml(voice)}" ${voice === ttsSettings.voice ? 'selected' : ''}>${escapeHtml(voice)}</option>`
+            ).join('')}
+          </select>
+        </label>
+        <label class="drawer-control">
+          <span>Speed</span>
+          <input
+            type="number"
+            min="0.25"
+            max="4"
+            step="0.05"
+            value="${escapeHtml(ttsSettings.speed)}"
+            data-session-tts-speed
+          />
+        </label>
+        <button type="button" data-stop-tts>Stop voice</button>
+        <p class="drawer-note voice-status">OpenAI voices are AI-generated. Audio is requested only when voice playback is enabled.</p>
+      </div>
       <div class="synthesis-settings">
         <h3>Synthesis model</h3>
         <label class="drawer-control">
@@ -443,6 +549,19 @@ function renderProviderSettings() {
         <p class="eyebrow">Providers</p>
         <h2>Catalog and keys</h2>
       </div>
+      <form class="drawer-form secret-preset-form" data-apply-mastermind-secret-preset>
+        <h3>1Password defaults</h3>
+        <label>
+          <span>Vault</span>
+          <input name="vaultName" value="Your Vault" />
+        </label>
+        <label>
+          <span>Account</span>
+          <input name="accountName" placeholder="your-team.1password.com" value="${escapeHtml(ONE_PASSWORD_ACCOUNT)}" />
+        </label>
+        <button type="submit">Apply Mastermind key names</button>
+        <p class="drawer-note">Sets every non-local provider to 1Password using the pattern op://Vault/Provider API Key/credential.</p>
+      </form>
       <div class="provider-list">
         ${effectiveProviders().map(renderProviderRow).join('')}
       </div>
@@ -646,7 +765,24 @@ function renderMentorEditor() {
           <span class="cache-pill ${escapeHtml(view.cache.state)}">${escapeHtml(view.cache.label)}</span>
           <p>${escapeHtml(view.cache.verificationPath)}</p>
         </div>
-        <div class="voice-note">Voice later: ${escapeHtml(mentor.voice.voiceLabel)} - ${escapeHtml(mentor.voice.tone)}</div>
+        <div class="voice-note">
+          Voice: ${escapeHtml(mentor.voice.voiceLabel)} - ${escapeHtml(mentor.voice.tone)}
+        </div>
+        <label>
+          <span>OpenAI voice</span>
+          <select data-mentor-voice="openAiVoice">
+            ${OPENAI_TTS_VOICES.map(
+              (voice) =>
+                `<option value="${escapeHtml(voice)}" ${
+                  voice === (mentor.voice?.openAiVoice ?? ttsSettings.voice) ? 'selected' : ''
+                }>${escapeHtml(voice)}</option>`
+            ).join('')}
+          </select>
+        </label>
+        <label class="drawer-control toggle-control">
+          <span>Use voice for this mentor</span>
+          <input type="checkbox" ${mentor.voice?.ttsEnabled === false ? '' : 'checked'} data-mentor-voice-toggle />
+        </label>
       </div>
     </section>
   `;
@@ -915,11 +1051,129 @@ function renderLiveState(state) {
   mobileStickStatus.textContent = state.stick.label;
 }
 
+function buildMastermindOnePasswordReference(provider, vaultName) {
+  const itemNames = {
+    openai: 'OpenAI API Key',
+    anthropic: 'Anthropic API Key',
+    xai: 'xAI API Key',
+    novita: 'Novita API Key',
+    groq: 'Groq API Key',
+    gemini: 'Gemini API Key',
+    openrouter: 'OpenRouter API Key'
+  };
+  const vault = String(vaultName ?? 'Your Vault').trim() || 'Your Vault';
+  const item = itemNames[provider.id] ?? `${provider.name} API Key`;
+  return `op://${vault}/${item}/credential`;
+}
+
+function queueMentorSpeech(event) {
+  if (!ttsSettings.enabled || event.type !== 'mentor.done') return;
+  const mentor = mentors.find((item) => item.id === event.mentorId);
+  if (mentor?.voice?.ttsEnabled === false) return;
+  const contribution = findLatestContribution(event.mentorId, event.turnNumber);
+  const input = contribution?.utterance?.trim();
+  if (!input) return;
+  speechQueue.push({
+    input,
+    mentorName: mentor?.name ?? event.payload?.mentorName ?? contribution.speakerName,
+    mentorRole: mentor?.role ?? contribution.speakerRole,
+    mentorVoice: mentor?.voice ?? {},
+    voice: mentor?.voice?.openAiVoice ?? ttsSettings.voice,
+    model: ttsSettings.model,
+    speed: ttsSettings.speed
+  });
+  void playNextSpeech();
+}
+
+function findLatestContribution(mentorId, turnNumber) {
+  const round = liveState?.rounds?.find((item) => item.number === turnNumber) ?? liveState?.rounds?.at(-1);
+  return round?.items
+    ?.filter((item) => item.type === 'contribution' && item.speakerId === mentorId)
+    .at(-1);
+}
+
+async function playNextSpeech() {
+  if (speechIsPlaying || speechQueue.length === 0) return;
+  speechIsPlaying = true;
+  const item = speechQueue.shift();
+  try {
+    status.textContent = `Generating voice for ${item.mentorName}`;
+    const response = await fetch('/api/tts/openai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        input: item.input,
+        voice: item.voice,
+        model: item.model,
+        speed: item.speed,
+        mentorName: item.mentorName,
+        mentorRole: item.mentorRole,
+        mentorVoice: item.mentorVoice,
+        secret: publicOpenAiSecretReference()
+      })
+    });
+    if (!response.ok) {
+      throw new Error((await safeJsonError(response)) ?? 'voice-request-failed');
+    }
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    activeAudio = new Audio(audioUrl);
+    status.textContent = `${item.mentorName} voice playing`;
+    await activeAudio.play();
+    await new Promise((resolve) => {
+      activeAudio.addEventListener('ended', resolve, { once: true });
+      activeAudio.addEventListener('error', resolve, { once: true });
+    });
+    URL.revokeObjectURL(audioUrl);
+  } catch (voiceError) {
+    status.textContent = `Voice unavailable: ${voiceError.message}`;
+  } finally {
+    activeAudio = null;
+    speechIsPlaying = false;
+    if (speechQueue.length > 0) {
+      void playNextSpeech();
+    }
+  }
+}
+
+function stopTtsPlayback() {
+  speechQueue = [];
+  if (activeAudio) {
+    activeAudio.pause();
+    activeAudio.currentTime = 0;
+  }
+  speechIsPlaying = false;
+  status.textContent = 'Voice stopped';
+}
+
+function publicOpenAiSecretReference() {
+  const reference = secretReferences.openai ?? {
+    providerId: 'openai',
+    mode: 'environment',
+    reference: 'OPENAI_API_KEY'
+  };
+  return {
+    mode: reference.mode,
+    reference: reference.reference || 'OPENAI_API_KEY',
+    account: reference.account || ''
+  };
+}
+
+async function safeJsonError(response) {
+  try {
+    const payload = await response.json();
+    return payload.error;
+  } catch {
+    return null;
+  }
+}
+
 async function applyLiveEvents(events, { delayMs = 18 } = {}) {
   for (const event of events) {
     liveEvents.push(event);
     liveState = applyLiveCouncilEvent(liveState, event);
     renderLiveState(liveState);
+    queueMentorSpeech(event);
     if (event.type === 'mentor.token') {
       status.textContent = `${event.payload.mentorName} is speaking`;
     }
@@ -1001,7 +1255,7 @@ async function runRealSession(question) {
   mobileStickStatus.textContent = stickLabel;
 }
 
-function runLiveMockSession(question) {
+async function runLiveMockSession(question) {
   if (liveSource) {
     liveSource.close();
   }
@@ -1013,16 +1267,30 @@ function runLiveMockSession(question) {
   renderLiveState(liveState);
 
   const liveMode = runtimeMode.value === 'live-real' ? 'real' : 'mock';
+  const configId = liveMode === 'real' ? await createLiveConfigId() : '';
   const liveMembers = encodeURIComponent(JSON.stringify(publicMentorsForLiveRequest()));
   const url = `/api/council/live?mode=${liveMode}&maxTurns=${sessionSettings.maxTurns}&preambleEnabled=${
     sessionSettings.preambleEnabled ? '1' : '0'
   }&synthesisProviderId=${encodeURIComponent(sessionSettings.synthesisProviderId)}&synthesisModelId=${encodeURIComponent(
     sessionSettings.synthesisModelId
-  )}&members=${liveMembers}&question=${encodeURIComponent(
+  )}${configId ? `&configId=${encodeURIComponent(configId)}` : ''}&members=${liveMembers}&question=${encodeURIComponent(
     question
   )}`;
   liveSource = new EventSource(url);
   attachLiveSourceHandlers(liveSource);
+}
+
+async function createLiveConfigId() {
+  const response = await fetch('/api/council/live-config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secretReferences })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'live-config-failed');
+  }
+  return payload.configId;
 }
 
 function attachLiveSourceHandlers(source, { onComplete, onAwaitingClarification, onError } = {}) {
@@ -1032,6 +1300,7 @@ function attachLiveSourceHandlers(source, { onComplete, onAwaitingClarification,
       liveEvents.push(event);
       liveState = applyLiveCouncilEvent(liveState, event);
       renderLiveState(liveState);
+      queueMentorSpeech(event);
 
       if (event.type === 'session.synthesized') {
         status.textContent = 'Live session complete';
@@ -1068,17 +1337,20 @@ function attachLiveSourceHandlers(source, { onComplete, onAwaitingClarification,
   };
 }
 
-function runLiveRealClarificationResume(context) {
+async function runLiveRealClarificationResume(context) {
   if (liveSource) {
     liveSource.close();
     liveSource = null;
   }
 
+  const configId = await createLiveConfigId();
   return new Promise((resolve, reject) => {
     const liveMembers = encodeURIComponent(JSON.stringify(publicMentorsForLiveRequest()));
     const url = `/api/council/live?mode=real&maxTurns=${sessionSettings.maxTurns}&preambleEnabled=0&synthesisProviderId=${encodeURIComponent(
       sessionSettings.synthesisProviderId
-    )}&synthesisModelId=${encodeURIComponent(sessionSettings.synthesisModelId)}&members=${liveMembers}&clarificationAnswer=${encodeURIComponent(
+    )}&synthesisModelId=${encodeURIComponent(sessionSettings.synthesisModelId)}&configId=${encodeURIComponent(
+      configId
+    )}&members=${liveMembers}&clarificationAnswer=${encodeURIComponent(
       context.clarificationAnswer
     )}&question=${encodeURIComponent(context.originalQuestion)}`;
     liveSource = new EventSource(url);
@@ -1273,7 +1545,7 @@ form.addEventListener('submit', async (event) => {
     if (runtimeMode.value === 'real') {
       await runRealSession(questionForCouncil);
     } else if (runtimeMode.value === 'live-mock' || runtimeMode.value === 'live-real') {
-      runLiveMockSession(questionForCouncil);
+      await runLiveMockSession(questionForCouncil);
     } else {
       runMockSession(questionForCouncil);
     }
@@ -1375,6 +1647,25 @@ drawerContent.addEventListener('input', (event) => {
     return;
   }
 
+  if (event.target.dataset.sessionTtsEnabled !== undefined) {
+    ttsSettings = {
+      ...ttsSettings,
+      enabled: event.target.checked
+    };
+    persistTtsSettings();
+    return;
+  }
+
+  if (event.target.dataset.sessionTtsSpeed !== undefined) {
+    ttsSettings = {
+      ...ttsSettings,
+      speed: Math.min(4, Math.max(0.25, Number(event.target.value) || 1))
+    };
+    event.target.value = ttsSettings.speed;
+    persistTtsSettings();
+    return;
+  }
+
   if (event.target.dataset.sessionSynthesisProvider !== undefined) {
     const catalog = effectiveProviders();
     const providerId = event.target.value;
@@ -1416,8 +1707,10 @@ drawerContent.addEventListener('input', (event) => {
   if (providerId) {
     secretReferences[providerId] = {
       ...secretReferences[providerId],
-      reference: event.target.value
+      reference: event.target.value,
+      account: secretReferences[providerId]?.account ?? ''
     };
+    persistSecretReferences();
     renderDrawer();
     return;
   }
@@ -1425,6 +1718,18 @@ drawerContent.addEventListener('input', (event) => {
   const field = event.target.dataset.mentorField;
   if (field) {
     updateSelectedMentor((mentor) => updateMentorCharacteristics(mentor, { [field]: event.target.value }));
+    return;
+  }
+
+  const voiceField = event.target.dataset.mentorVoice;
+  if (voiceField) {
+    updateSelectedMentor((mentor) =>
+      updateMentorCharacteristics(mentor, {
+        voice: {
+          [voiceField]: event.target.value
+        }
+      })
+    );
     return;
   }
 
@@ -1453,8 +1758,10 @@ drawerContent.addEventListener('change', (event) => {
   if (secretProviderId) {
     secretReferences[secretProviderId] = {
       ...secretReferences[secretProviderId],
-      mode: event.target.value
+      mode: event.target.value,
+      account: event.target.value === 'one-password' ? secretReferences[secretProviderId]?.account || ONE_PASSWORD_ACCOUNT : ''
     };
+    persistSecretReferences();
     renderDrawer();
     return;
   }
@@ -1462,6 +1769,38 @@ drawerContent.addEventListener('change', (event) => {
   if (event.target.dataset.modelProvider !== undefined) {
     selectedModelProviderId = event.target.value;
     renderDrawer();
+    return;
+  }
+
+  if (event.target.dataset.sessionTtsVoice !== undefined) {
+    ttsSettings = {
+      ...ttsSettings,
+      voice: event.target.value
+    };
+    persistTtsSettings();
+    return;
+  }
+
+  const voiceField = event.target.dataset.mentorVoice;
+  if (voiceField) {
+    updateSelectedMentor((mentor) =>
+      updateMentorCharacteristics(mentor, {
+        voice: {
+          [voiceField]: event.target.value
+        }
+      })
+    );
+    return;
+  }
+
+  if (event.target.dataset.mentorVoiceToggle !== undefined) {
+    updateSelectedMentor((mentor) =>
+      updateMentorCharacteristics(mentor, {
+        voice: {
+          ttsEnabled: event.target.checked
+        }
+      })
+    );
     return;
   }
 
@@ -1505,6 +1844,11 @@ drawerContent.addEventListener('click', (event) => {
     return;
   }
 
+  if (event.target.dataset.stopTts !== undefined) {
+    stopTtsPlayback();
+    return;
+  }
+
   if (event.target.dataset.exportCurrentConsultation !== undefined) {
     exportCurrentConsultationPdf();
     return;
@@ -1542,6 +1886,22 @@ drawerContent.addEventListener('submit', (event) => {
     persistUserPresets();
     activePresetId = preset.id;
     persistMentors();
+    renderConfiguration();
+    return;
+  }
+
+  if (event.target.dataset.applyMastermindSecretPreset !== undefined) {
+    const vaultName = data.vaultName;
+    for (const provider of effectiveProviders()) {
+      if (provider.id === 'local' || !provider.secretLabel) continue;
+      secretReferences[provider.id] = {
+        providerId: provider.id,
+        mode: 'one-password',
+        reference: buildMastermindOnePasswordReference(provider, vaultName),
+        account: data.accountName || ONE_PASSWORD_ACCOUNT
+      };
+    }
+    persistSecretReferences();
     renderConfiguration();
     return;
   }

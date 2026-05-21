@@ -119,6 +119,93 @@ test('streams real council events with server-side secrets', async () => {
   assert.equal(output.includes('sk-secret-value'), false);
 });
 
+test('uses live secret configuration overrides without exposing references', async () => {
+  const writes = [];
+  const resolvedReferences = [];
+  const result = await handleLiveCouncilRequest(
+    new URL('http://localhost/api/council/live?mode=real&question=What%20next%3F&maxTurns=1&preambleEnabled=0'),
+    {
+      members: [{ id: 'athena', name: 'Athena', role: 'Strategist', providerId: 'openai', modelId: 'gpt-4.1' }],
+      providerTargets: [
+        {
+          id: 'openai',
+          name: 'OpenAI',
+          adapter: 'openai-responses',
+          model: 'gpt-4.1',
+          secretReference: 'op://Example Vault/OpenAI API Key/credential'
+        }
+      ],
+      secretReferences: {
+        openai: {
+          mode: 'one-password',
+          reference: 'op://Team Vault/OpenAI API Key/credential',
+          account: 'example.1password.com'
+        }
+      },
+      findCli: async () => ({ ok: true, path: 'op' }),
+      resolveReference: async (reference, options) => {
+        resolvedReferences.push(reference);
+        assert.equal(options.account, 'example.1password.com');
+        return { ok: true, getSecret: () => 'sk-secret-value' };
+      },
+      streamText: async function* ({ mentor }) {
+        yield { type: 'token', text: `${mentor.name} configured token` };
+      },
+      write: (chunk) => writes.push(chunk),
+      end: () => writes.push('[end]')
+    }
+  );
+
+  const output = writes.join('');
+  assert.equal(result.status, 200);
+  assert.ok(resolvedReferences.length >= 1);
+  assert.ok(resolvedReferences.every((reference) => reference === 'op://Team Vault/OpenAI API Key/credential'));
+  assert.ok(output.includes('Athena configured token'));
+  assert.equal(output.includes('op://'), false);
+  assert.equal(output.includes('sk-secret-value'), false);
+});
+
+test('uses live environment secret configuration overrides', async () => {
+  const writes = [];
+  const result = await handleLiveCouncilRequest(
+    new URL('http://localhost/api/council/live?mode=real&question=What%20next%3F&maxTurns=1&preambleEnabled=0'),
+    {
+      members: [{ id: 'athena', name: 'Athena', role: 'Strategist', providerId: 'openai', modelId: 'gpt-4.1' }],
+      providerTargets: [
+        {
+          id: 'openai',
+          name: 'OpenAI',
+          adapter: 'openai-responses',
+          model: 'gpt-4.1',
+          secretReference: 'op://Example Vault/OpenAI API Key/credential'
+        }
+      ],
+      secretReferences: {
+        openai: {
+          mode: 'environment',
+          reference: 'OPENAI_API_KEY'
+        }
+      },
+      env: { OPENAI_API_KEY: 'sk-env-secret' },
+      findCli: async () => ({ ok: true, path: 'op' }),
+      resolveReference: async () => {
+        throw new Error('1Password should not be used for environment references');
+      },
+      streamText: async function* ({ apiKey }) {
+        assert.equal(apiKey, 'sk-env-secret');
+        yield { type: 'token', text: 'Environment token' };
+      },
+      write: (chunk) => writes.push(chunk),
+      end: () => writes.push('[end]')
+    }
+  );
+
+  const output = writes.join('');
+  assert.equal(result.status, 200);
+  assert.ok(output.includes('Environment token'));
+  assert.equal(output.includes('sk-env-secret'), false);
+});
+
 test('forwards live real max turns and synthesis model settings', async () => {
   const writes = [];
   const result = await handleLiveCouncilRequest(

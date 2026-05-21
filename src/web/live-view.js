@@ -146,7 +146,11 @@ export function applyLiveCouncilEvent(state, event) {
   }
 
   if (event.type === 'session.error' || event.type === 'mentor.error') {
-    updateMentor(next, event.mentorId, { state: 'error', hasStick: false });
+    updateMentor(next, event.mentorId, {
+      state: 'error',
+      hasStick: false,
+      error: event.payload?.reason ?? 'live-session-error'
+    });
     if (next.stick.ownerMentorId === event.mentorId) {
       next.stick = {
         ownerMentorId: null,

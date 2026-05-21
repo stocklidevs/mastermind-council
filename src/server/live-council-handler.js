@@ -17,6 +17,8 @@ export async function handleLiveCouncilRequest(
     findCli = findOnePasswordCli,
     resolveReference = resolveOnePasswordReference,
     streamText,
+    secretReferences = null,
+    env = process.env,
     start = null,
     write,
     end,
@@ -70,6 +72,8 @@ export async function handleLiveCouncilRequest(
           findCli,
           resolveReference,
           streamText,
+          secretReferences,
+          env,
           preambleEnabled,
           clarificationAnswer,
           maxTurns,
@@ -100,6 +104,8 @@ async function* streamRealModeEvents({
   findCli,
   resolveReference,
   streamText,
+  secretReferences,
+  env,
   preambleEnabled = true,
   clarificationAnswer = '',
   maxTurns = 3,
@@ -118,11 +124,12 @@ async function* streamRealModeEvents({
   }
 
   const realMentors = members?.some((mentor) => mentor.providerId) ? members : createRealMentors(providerTargets);
+  const effectiveTargets = applySecretReferenceOverrides(providerTargets, secretReferences);
   yield* streamRealLiveCouncilEvents({
     question,
     mentors: realMentors,
-    providerTargets,
-    resolveSecret: (reference) => resolveReference(reference, { opPath: cli.path }),
+    providerTargets: effectiveTargets,
+    resolveSecret: (reference) => resolveConfiguredSecret(reference, { opPath: cli.path, resolveReference, env }),
     streamText,
     preambleEnabled,
     clarificationAnswer,
@@ -130,6 +137,52 @@ async function* streamRealModeEvents({
     synthesisProviderId,
     synthesisModelId
   });
+}
+
+export function applySecretReferenceOverrides(providerTargets, secretReferences) {
+  if (!secretReferences || typeof secretReferences !== 'object') return providerTargets;
+  return providerTargets.map((target) => {
+    const override = secretReferences[target.id];
+    if (!override || typeof override !== 'object') return target;
+    const reference = safeSecretReferenceText(override.reference);
+    const mode = override.mode === 'one-password' ? 'one-password' : 'environment';
+    if (!reference) return target;
+    return {
+      ...target,
+      secretReference: {
+        mode,
+        reference,
+        account: safeSecretReferenceText(override.account)
+      }
+    };
+  });
+}
+
+async function resolveConfiguredSecret(reference, { opPath, resolveReference, env }) {
+  const config = normalizeSecretReference(reference);
+  if (config.mode === 'environment') {
+    const value = env?.[config.reference];
+    return value
+      ? { ok: true, getSecret: () => value }
+      : { ok: false, error: `environment secret ${config.reference} unavailable` };
+  }
+  return resolveReference(config.reference, { opPath, account: config.account });
+}
+
+function normalizeSecretReference(reference) {
+  if (typeof reference === 'object' && reference) {
+    return {
+      mode: reference.mode === 'environment' ? 'environment' : 'one-password',
+      reference: safeSecretReferenceText(reference.reference),
+      account: safeSecretReferenceText(reference.account)
+    };
+  }
+  const value = safeSecretReferenceText(reference);
+  return {
+    mode: value.startsWith('op://') ? 'one-password' : 'environment',
+    reference: value,
+    account: ''
+  };
 }
 
 export function previewLiveCouncilEvents({ question, members, maxTurns = 3, preambleEnabled = true }) {
@@ -166,6 +219,12 @@ function parseMembersParam(value) {
 
 function safeText(value) {
   return String(value ?? '').replaceAll(/op:\/\/[^\s"]+|\bsk-[A-Za-z0-9_-]{4,}\b/g, '').trim();
+}
+
+function safeSecretReferenceText(value) {
+  return String(value ?? '')
+    .replaceAll(/\bsk-[A-Za-z0-9_-]{4,}\b/g, '')
+    .trim();
 }
 
 function createLiveMentorFromConfig(mentor) {

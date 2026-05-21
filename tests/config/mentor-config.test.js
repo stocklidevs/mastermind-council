@@ -74,12 +74,14 @@ test('preserves future voice metadata', () => {
       voiceLabel: 'calm alto',
       pace: 'balanced',
       tone: 'analytical',
-      enabledLater: true
+      openAiVoice: 'cedar',
+      ttsEnabled: true
     }
   });
 
   assert.equal(updated.voice.voiceLabel, 'calm alto');
-  assert.equal(updated.voice.enabledLater, true);
+  assert.equal(updated.voice.openAiVoice, 'cedar');
+  assert.equal(updated.voice.ttsEnabled, true);
 });
 
 test('creates default mentors with deep public identities', () => {

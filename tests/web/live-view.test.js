@@ -190,3 +190,19 @@ test('records clarification answer and resumed synthesis in view state', () => {
   assert.equal(state.clarificationAnswer, 'Two hours.');
   assert.equal(state.synthesis.closureReason, 'clarification-incorporated');
 });
+
+test('stores mentor error reason on the affected mentor', () => {
+  let state = createLiveCouncilViewState(mentors);
+  state = applyLiveCouncilEvent(state, {
+    type: 'mentor.error',
+    sessionId: 's',
+    sequence: 1,
+    turnNumber: 1,
+    mentorId: 'athena',
+    payload: { mentorName: 'Athena', reason: 'openai-tts-secret-unavailable' }
+  });
+
+  const athena = state.mentors.find((mentor) => mentor.id === 'athena');
+  assert.equal(athena.state, 'error');
+  assert.equal(athena.error, 'openai-tts-secret-unavailable');
+});

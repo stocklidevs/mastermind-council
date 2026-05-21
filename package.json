@@ -1,6 +1,6 @@
 {
   "name": "mastermind",
-  "version": "0.24.4",
+  "version": "0.25.3",
   "private": true,
   "license": "MIT",
   "type": "module",

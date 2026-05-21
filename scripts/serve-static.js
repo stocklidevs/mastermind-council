@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { handleRealCouncilRequest } from '../src/server/real-council-handler.js';
 import { handleLiveCouncilRequest } from '../src/server/live-council-handler.js';
 import { createRuntimeLogger } from '../src/server/runtime-logger.js';
+import { handleOpenAiTtsRequest } from '../src/server/tts-handler.js';
+import { createLiveConfigStore } from '../src/server/live-config-store.js';
 
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -15,6 +17,7 @@ const contentTypes = {
 
 export function createAppServer({ root = process.cwd(), logger = createRuntimeLogger() } = {}) {
   const normalizedRoot = normalize(root);
+  const liveConfigs = createLiveConfigStore();
   return createServer(async (request, response) => {
     if (request.url === '/api/council/real' && request.method === 'POST') {
       await handleRealCouncilApi(request, response, logger);
@@ -22,7 +25,17 @@ export function createAppServer({ root = process.cwd(), logger = createRuntimeLo
     }
 
     if (request.url?.startsWith('/api/council/live') && request.method === 'GET') {
-      await handleLiveCouncilApi(request, response, logger);
+      await handleLiveCouncilApi(request, response, logger, liveConfigs);
+      return;
+    }
+
+    if (request.url === '/api/council/live-config' && request.method === 'POST') {
+      await handleLiveConfigApi(request, response, liveConfigs);
+      return;
+    }
+
+    if (request.url === '/api/tts/openai' && request.method === 'POST') {
+      await handleOpenAiTtsApi(request, response);
       return;
     }
 
@@ -45,10 +58,12 @@ export function createAppServer({ root = process.cwd(), logger = createRuntimeLo
   });
 }
 
-async function handleLiveCouncilApi(request, response, logger) {
+async function handleLiveCouncilApi(request, response, logger, liveConfigs) {
   const url = new URL(request.url, 'http://localhost');
+  const config = liveConfigs.get(url.searchParams.get('configId'));
   const result = await handleLiveCouncilRequest(url, {
     logger,
+    secretReferences: config?.secretReferences,
     start: (status, headers) => response.writeHead(status, headers),
     write: (chunk) => response.write(chunk),
     end: () => response.end()
@@ -73,6 +88,51 @@ async function handleRealCouncilApi(request, response, logger) {
     const body = JSON.parse(await readBody(request));
     const result = await handleRealCouncilRequest(body, { logger });
     writeJson(response, result.status, result.body);
+  } catch {
+    writeJson(response, 400, { error: 'invalid-json' });
+  }
+}
+
+async function handleLiveConfigApi(request, response, liveConfigs) {
+  try {
+    const body = JSON.parse(await readBody(request));
+    const configId = liveConfigs.save({
+      secretReferences: sanitizeSecretReferences(body.secretReferences)
+    });
+    writeJson(response, 200, { configId });
+  } catch {
+    writeJson(response, 400, { error: 'invalid-json' });
+  }
+}
+
+function sanitizeSecretReferences(secretReferences) {
+  if (!secretReferences || typeof secretReferences !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(secretReferences).map(([providerId, value]) => [
+      providerId,
+      {
+        mode: value?.mode === 'one-password' ? 'one-password' : 'environment',
+        reference: String(value?.reference ?? '')
+          .replaceAll(/\bsk-[A-Za-z0-9_-]{4,}\b/g, '')
+          .trim(),
+        account: String(value?.account ?? '')
+          .replaceAll(/\bsk-[A-Za-z0-9_-]{4,}\b/g, '')
+          .trim()
+      }
+    ])
+  );
+}
+
+async function handleOpenAiTtsApi(request, response) {
+  try {
+    const body = JSON.parse(await readBody(request));
+    const result = await handleOpenAiTtsRequest(body);
+    response.writeHead(result.status, result.headers);
+    if (result.body instanceof ArrayBuffer) {
+      response.end(Buffer.from(result.body));
+      return;
+    }
+    response.end(JSON.stringify(result.body));
   } catch {
     writeJson(response, 400, { error: 'invalid-json' });
   }

@@ -25,7 +25,8 @@ export function createDefaultMentors() {
         voiceLabel: 'calm alto',
         pace: 'balanced',
         tone: 'analytical',
-        enabledLater: true
+        openAiVoice: 'marin',
+        ttsEnabled: true
       }
     },
     {
@@ -51,7 +52,8 @@ export function createDefaultMentors() {
         voiceLabel: 'quiet baritone',
         pace: 'slow',
         tone: 'calm',
-        enabledLater: true
+        openAiVoice: 'onyx',
+        ttsEnabled: true
       }
     },
     {
@@ -77,7 +79,8 @@ export function createDefaultMentors() {
         voiceLabel: 'warm tenor',
         pace: 'balanced',
         tone: 'direct',
-        enabledLater: true
+        openAiVoice: 'cedar',
+        ttsEnabled: true
       }
     }
   ];

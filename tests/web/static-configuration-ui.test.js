@@ -34,6 +34,12 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /data-session-preamble-enabled/);
   assert.match(appJs, /data-session-synthesis-provider/);
   assert.match(appJs, /data-session-synthesis-model/);
+  assert.match(appJs, /data-session-tts-enabled/);
+  assert.match(appJs, /data-session-tts-voice/);
+  assert.match(appJs, /\/api\/tts\/openai/);
+  assert.match(appJs, /\/api\/council\/live-config/);
+  assert.match(appJs, /queueMentorSpeech/);
+  assert.match(appJs, /createLiveConfigId/);
   assert.match(appJs, /synthesisProviderId=/);
   assert.match(appJs, /synthesisModelId=/);
   assert.match(appJs, /data-council-preset/);
@@ -50,7 +56,12 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /buildFollowUpQuestion/);
   assert.match(appJs, /saveSessionHistoryRecord/);
   assert.match(appJs, /CURRENT_MENTORS_STORAGE_KEY/);
+  assert.match(appJs, /SECRET_REFERENCES_STORAGE_KEY/);
   assert.match(appJs, /persistMentors/);
+  assert.match(appJs, /persistSecretReferences/);
+  assert.match(appJs, /data-apply-mastermind-secret-preset/);
+  assert.match(appJs, /buildMastermindOnePasswordReference/);
+  assert.match(appJs, /ONE_PASSWORD_ACCOUNT/);
   assert.match(appJs, /members=/);
   assert.match(appJs, /clarificationAnswer=/);
   assert.match(appJs, /runLiveRealClarificationResume/);
@@ -74,6 +85,8 @@ test('styles cache and secret warning states', () => {
   assert.match(stylesCss, /\.mentor-editor/);
   assert.match(stylesCss, /\.stick-icon/);
   assert.match(stylesCss, /\.toggle-control/);
+  assert.match(stylesCss, /\.tts-settings/);
+  assert.match(stylesCss, /\.voice-status/);
   assert.match(stylesCss, /\.export-print/);
 });
 

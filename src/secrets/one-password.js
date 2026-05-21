@@ -45,13 +45,17 @@ export async function findOnePasswordCli({
     : { ok: false, path: null, error: '1Password CLI was not found.' };
 }
 
-export async function resolveOnePasswordReference(reference, { opPath = 'op', runner = runCommand } = {}) {
+export async function resolveOnePasswordReference(reference, { opPath = 'op', runner = runCommand, account = '' } = {}) {
   const validation = validateOnePasswordReference(reference);
   if (!validation.valid) {
     return { ok: false, reference, error: validation.warning };
   }
 
-  const result = await runner({ command: opPath, args: ['read', reference] });
+  const args = ['read', reference];
+  if (String(account ?? '').trim()) {
+    args.push('--account', String(account).trim());
+  }
+  const result = await runner({ command: opPath, args });
   if (result.exitCode !== 0 || !String(result.stdout ?? '').trim()) {
     return {
       ok: false,
