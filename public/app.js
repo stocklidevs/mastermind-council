@@ -123,6 +123,7 @@ let transcriptShouldAutoScroll = true;
 let speechQueue = [];
 let speechIsPlaying = false;
 let activeAudio = null;
+let activeSpeechMentorId = null;
 let localSecretDefaults = null;
 const LIVE_EVENT_TYPES = [
   'session.started',
@@ -306,19 +307,58 @@ function renderRoster(members, activeSpeakerId) {
       const state = member.state ? formatMentorState(member.state) : active ? 'Holding stick' : 'Listening';
       const detail = member.error ? ` - ${member.error}` : '';
       return `
-        <article class="mentor-row ${active ? 'is-active' : ''} ${member.state ? `state-${escapeHtml(member.state)}` : ''}">
+        <article class="mentor-row ${active ? 'is-active' : ''} ${
+          member.state ? `state-${escapeHtml(member.state)}` : ''
+        }" data-mentor-id="${escapeHtml(member.id)}">
           <div class="voice-dot" aria-hidden="true"></div>
           <div>
             <h3>${escapeHtml(member.name)}</h3>
             <p>${escapeHtml(member.role)} - ${escapeHtml(providerLabel)}${escapeHtml(detail)}</p>
           </div>
-          <span class="mentor-state">${member.hasStick ? '<span class="stick-icon" aria-hidden="true"></span>' : ''}${escapeHtml(
-            state
-          )}</span>
+          <span class="mentor-state">${
+            member.hasStick ? '<span class="stick-icon" aria-hidden="true"></span>' : ''
+          }${renderSpeakerIndicator(member)}${escapeHtml(state)}</span>
         </article>
       `;
     })
     .join('');
+}
+
+function renderSpeakerIndicator(member) {
+  const voiceEnabled = isMentorVoiceEnabled(member.id);
+  const playing = voiceEnabled && activeSpeechMentorId === member.id;
+  const label = voiceEnabled
+    ? playing
+      ? `${member.name} voice playing`
+      : `${member.name} voice enabled`
+    : `${member.name} voice muted`;
+  return `
+    <span class="speaker-indicator ${voiceEnabled ? '' : 'is-muted'} ${playing ? 'is-playing' : ''}" aria-label="${escapeHtml(
+      label
+    )}" title="${escapeHtml(label)}">
+      <span class="speaker-body" aria-hidden="true"></span>
+      <span class="speaker-wave wave-one" aria-hidden="true"></span>
+      <span class="speaker-wave wave-two" aria-hidden="true"></span>
+      <span class="speaker-mute" aria-hidden="true"></span>
+    </span>
+  `;
+}
+
+function isMentorVoiceEnabled(mentorId) {
+  const mentor = mentors.find((item) => item.id === mentorId);
+  return ttsSettings.enabled && mentor?.voice?.ttsEnabled !== false;
+}
+
+function updateRosterVoiceIndicators() {
+  roster.querySelectorAll('.mentor-row').forEach((row) => {
+    const mentorId = row.dataset.mentorId;
+    const indicator = row.querySelector('.speaker-indicator');
+    if (!indicator || !mentorId) return;
+    const voiceEnabled = isMentorVoiceEnabled(mentorId);
+    const playing = voiceEnabled && activeSpeechMentorId === mentorId;
+    indicator.classList.toggle('is-muted', !voiceEnabled);
+    indicator.classList.toggle('is-playing', playing);
+  });
 }
 
 function formatMentorState(state) {
@@ -1098,6 +1138,7 @@ function queueMentorSpeech(event) {
   const input = contribution?.utterance?.trim();
   if (!input) return;
   speechQueue.push({
+    mentorId: event.mentorId,
     input,
     mentorName: mentor?.name ?? event.payload?.mentorName ?? contribution.speakerName,
     mentorRole: mentor?.role ?? contribution.speakerRole,
@@ -1142,6 +1183,8 @@ async function playNextSpeech() {
     const audioBlob = await response.blob();
     const audioUrl = URL.createObjectURL(audioBlob);
     activeAudio = new Audio(audioUrl);
+    activeSpeechMentorId = item.mentorId;
+    updateRosterVoiceIndicators();
     setSessionStatus(`${item.mentorName} voice playing`);
     await activeAudio.play();
     await new Promise((resolve) => {
@@ -1153,6 +1196,8 @@ async function playNextSpeech() {
     setSessionStatus(`Voice unavailable: ${voiceError.message}`);
   } finally {
     activeAudio = null;
+    activeSpeechMentorId = null;
+    updateRosterVoiceIndicators();
     speechIsPlaying = false;
     if (speechQueue.length > 0) {
       void playNextSpeech();
@@ -1167,6 +1212,8 @@ function stopTtsPlayback() {
     activeAudio.currentTime = 0;
   }
   speechIsPlaying = false;
+  activeSpeechMentorId = null;
+  updateRosterVoiceIndicators();
   setSessionStatus('Voice stopped');
 }
 
@@ -1678,6 +1725,7 @@ drawerContent.addEventListener('input', (event) => {
       enabled: event.target.checked
     };
     persistTtsSettings();
+    renderConfiguration();
     return;
   }
 

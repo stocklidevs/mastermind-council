@@ -252,6 +252,93 @@ h2 {
   white-space: nowrap;
 }
 
+.speaker-indicator {
+  position: relative;
+  width: 24px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+.speaker-body {
+  position: relative;
+  width: 12px;
+  height: 10px;
+  border-radius: 2px 5px 5px 2px;
+  border: 2px solid currentColor;
+  border-left-width: 5px;
+}
+
+.speaker-body::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 1px;
+  width: 5px;
+  height: 6px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.speaker-wave {
+  position: absolute;
+  left: 14px;
+  border: 2px solid currentColor;
+  border-left: 0;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 0 999px 999px 0;
+  opacity: 0;
+}
+
+.wave-one {
+  width: 6px;
+  height: 10px;
+}
+
+.wave-two {
+  width: 10px;
+  height: 16px;
+}
+
+.speaker-indicator.is-playing {
+  opacity: 1;
+}
+
+.speaker-indicator.is-playing .speaker-wave {
+  animation: speaker-wave-pulse 900ms ease-in-out infinite;
+}
+
+.speaker-indicator.is-playing .wave-two {
+  animation-delay: 150ms;
+}
+
+.speaker-indicator.is-muted {
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.speaker-mute {
+  display: none;
+  position: absolute;
+  width: 21px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: rotate(-42deg);
+}
+
+.speaker-indicator.is-muted .speaker-wave {
+  display: none;
+}
+
+.speaker-indicator.is-muted .speaker-mute {
+  display: block;
+}
+
 .stick-icon {
   width: 22px;
   height: 5px;
@@ -993,11 +1080,28 @@ select {
   }
 }
 
+@keyframes speaker-wave-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scaleX(0.82);
+  }
+  45% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .session-status.is-initiating::after {
     animation: none;
     transform: translateX(0);
     opacity: 0.35;
+  }
+
+  .speaker-indicator.is-playing .speaker-wave {
+    animation: none;
+    opacity: 0.75;
   }
 }
 

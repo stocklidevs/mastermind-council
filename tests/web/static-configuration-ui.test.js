@@ -39,6 +39,9 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /enabled:\s*parsed\?\.enabled !== false/);
   assert.match(appJs, /return \{ enabled: true, model: 'gpt-4o-mini-tts'/);
   assert.match(appJs, /Voice playback is off/);
+  assert.match(appJs, /renderSpeakerIndicator/);
+  assert.match(appJs, /activeSpeechMentorId/);
+  assert.match(appJs, /updateRosterVoiceIndicators/);
   assert.match(appJs, /\/api\/tts\/openai/);
   assert.match(appJs, /\/api\/council\/live-config/);
   assert.match(appJs, /queueMentorSpeech/);
@@ -92,6 +95,9 @@ test('styles cache and secret warning states', () => {
   assert.match(stylesCss, /\.toggle-control/);
   assert.match(stylesCss, /\.tts-settings/);
   assert.match(stylesCss, /\.voice-status/);
+  assert.match(stylesCss, /\.speaker-indicator/);
+  assert.match(stylesCss, /\.speaker-indicator\.is-muted/);
+  assert.match(stylesCss, /\.speaker-indicator\.is-playing \.speaker-wave/);
   assert.match(stylesCss, /\.export-print/);
 });
 
