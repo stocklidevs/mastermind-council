@@ -13,18 +13,27 @@ export async function handleOpenAiTtsRequest(
     env = process.env,
     findCli = findOnePasswordCli,
     resolveReference = resolveOnePasswordReference,
-    fetchImpl = fetch
+    fetchImpl = fetch,
+    logger = null
   } = {}
 ) {
   const input = String(body?.input ?? '').trim();
   const voice = String(body?.voice ?? DEFAULT_OPENAI_TTS_VOICE).trim();
+  logger?.info('tts.request', {
+    inputLength: input.length,
+    voice,
+    model: body?.model || DEFAULT_OPENAI_TTS_MODEL,
+    secretMode: String(body?.secret?.mode ?? 'environment')
+  });
   const validation = validateOpenAiTtsInput({ input, voice });
   if (!validation.valid) {
+    logger?.warn('tts.rejected', { reason: validation.error });
     return jsonResult(400, { error: validation.error });
   }
 
   const secret = await resolveOpenAiSecret(body?.secret, { env, findCli, resolveReference });
   if (!secret.ok) {
+    logger?.warn('tts.rejected', { reason: secret.error });
     return jsonResult(400, { error: secret.error });
   }
 
@@ -48,21 +57,28 @@ export async function handleOpenAiTtsRequest(
     });
     const response = await fetchImpl(request.url, request.options);
     if (!response.ok) {
+      logger?.warn('tts.provider_error', { status: response.status });
       return jsonResult(502, {
         error: 'openai-tts-request-failed',
         status: response.status,
         detail: sanitizeProviderError(await safeText(response))
       });
     }
+    const audioBody = await response.arrayBuffer();
+    logger?.info('tts.done', {
+      bytes: audioBody.byteLength,
+      contentType: response.headers.get('content-type') || 'audio/mpeg'
+    });
     return {
       status: 200,
       headers: {
         'content-type': response.headers.get('content-type') || 'audio/mpeg',
         'cache-control': 'no-store'
       },
-      body: await response.arrayBuffer()
+      body: audioBody
     };
   } catch (error) {
+    logger?.error('tts.error', { reason: sanitizeProviderError(error.message) });
     return jsonResult(502, {
       error: 'openai-tts-request-failed',
       detail: sanitizeProviderError(error.message)

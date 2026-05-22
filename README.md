@@ -1,7 +1,7 @@
 # Mastermind
 
-![Tests](https://img.shields.io/badge/tests-177%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.7-blue)
+![Tests](https://img.shields.io/badge/tests-178%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.25.8-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -197,6 +197,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Council discussions can now be exported through a browser print-to-PDF view for the latest completed session or saved consultations.
 - OpenAI TTS playback can now be enabled from Session settings, with global and per-mentor voice selection, server-side secret resolution, and queued audio for completed live mentor utterances.
 - OpenAI TTS playback is now on by default for fresh sessions, while the Session settings toggle still lets you turn it off.
+- TTS requests now emit safe server lifecycle logs, and the UI surfaces when voice playback is off instead of silently skipping queued mentor speech.
 - Live real sessions now pass the provider secret references configured in the drawer through a short-lived local config id, and mentor tiles show the sanitized error reason when a provider cannot speak.
 - Provider secret settings now persist locally, and the Providers tab includes a 1Password defaults helper for applying generic provider key names across configured providers.
 - Local-only 1Password defaults can now be restored from ignored `public/local-secret-defaults.json`, so public Git history stays generic while a personal machine can keep its real vault, account, and item names working.

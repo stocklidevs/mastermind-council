@@ -83,3 +83,44 @@ test('returns sanitized errors when OpenAI rejects the speech request', async ()
   assert.equal(result.body.error, 'openai-tts-request-failed');
   assert.equal(JSON.stringify(result.body).includes('sk-live-secret'), false);
 });
+
+test('emits safe TTS lifecycle logs', async () => {
+  const records = [];
+  const logger = {
+    info(event, fields) {
+      records.push({ level: 'info', event, fields });
+    },
+    warn(event, fields) {
+      records.push({ level: 'warn', event, fields });
+    },
+    error(event, fields) {
+      records.push({ level: 'error', event, fields });
+    }
+  };
+
+  const result = await handleOpenAiTtsRequest(
+    {
+      input: 'A short mentor answer.',
+      voice: 'marin',
+      secret: { mode: 'environment', reference: 'OPENAI_API_KEY' }
+    },
+    {
+      env: { OPENAI_API_KEY: 'sk-live-secret' },
+      logger,
+      fetchImpl: async () =>
+        new Response(new Uint8Array([1, 2, 3, 4]), {
+          status: 200,
+          headers: { 'content-type': 'audio/mpeg' }
+        })
+    }
+  );
+
+  assert.equal(result.status, 200);
+  assert.deepEqual(
+    records.map((record) => record.event),
+    ['tts.request', 'tts.done']
+  );
+  assert.equal(records[0].fields.inputLength, 22);
+  assert.equal(records[1].fields.bytes, 4);
+  assert.equal(JSON.stringify(records).includes('sk-live-secret'), false);
+});

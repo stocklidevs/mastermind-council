@@ -35,7 +35,7 @@ export function createAppServer({ root = process.cwd(), logger = createRuntimeLo
     }
 
     if (request.url === '/api/tts/openai' && request.method === 'POST') {
-      await handleOpenAiTtsApi(request, response);
+      await handleOpenAiTtsApi(request, response, logger);
       return;
     }
 
@@ -123,10 +123,10 @@ function sanitizeSecretReferences(secretReferences) {
   );
 }
 
-async function handleOpenAiTtsApi(request, response) {
+async function handleOpenAiTtsApi(request, response, logger) {
   try {
     const body = JSON.parse(await readBody(request));
-    const result = await handleOpenAiTtsRequest(body);
+    const result = await handleOpenAiTtsRequest(body, { logger });
     response.writeHead(result.status, result.headers);
     if (result.body instanceof ArrayBuffer) {
       response.end(Buffer.from(result.body));

@@ -1087,7 +1087,11 @@ function buildMastermindOnePasswordReference(provider, vaultName) {
 }
 
 function queueMentorSpeech(event) {
-  if (!ttsSettings.enabled || event.type !== 'mentor.done') return;
+  if (event.type !== 'mentor.done') return;
+  if (!ttsSettings.enabled) {
+    setSessionStatus('Voice playback is off');
+    return;
+  }
   const mentor = mentors.find((item) => item.id === event.mentorId);
   if (mentor?.voice?.ttsEnabled === false) return;
   const contribution = findLatestContribution(event.mentorId, event.turnNumber);

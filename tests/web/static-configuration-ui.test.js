@@ -38,6 +38,7 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /data-session-tts-voice/);
   assert.match(appJs, /enabled:\s*parsed\?\.enabled !== false/);
   assert.match(appJs, /return \{ enabled: true, model: 'gpt-4o-mini-tts'/);
+  assert.match(appJs, /Voice playback is off/);
   assert.match(appJs, /\/api\/tts\/openai/);
   assert.match(appJs, /\/api\/council\/live-config/);
   assert.match(appJs, /queueMentorSpeech/);
