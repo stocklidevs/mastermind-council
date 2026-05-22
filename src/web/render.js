@@ -32,6 +32,7 @@ function contributionItem(event, members) {
     eventId: event.id,
     order: event.order,
     speakerId: event.speakerId,
+    turnNumber: event.roundNumber,
     speakerName: member?.name ?? event.speakerId,
     speakerRole: member?.role ?? 'Council member',
     stickLabel: `Speaking stick held by ${member?.name ?? event.speakerId}`,

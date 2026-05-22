@@ -94,6 +94,7 @@ test('builds live transcript contribution from actions and tokens', () => {
 
   const contribution = state.rounds[0].items[0];
   assert.equal(contribution.speakerId, 'athena');
+  assert.equal(contribution.turnNumber, 1);
   assert.equal(contribution.preAction, 'Athena rises.');
   assert.equal(contribution.utterance, 'Focus now.');
   assert.equal(contribution.postAction, 'Athena sits.');

@@ -188,6 +188,7 @@ function ensureContribution(state, event) {
       type: 'contribution',
       mentorId: event.mentorId,
       speakerId: event.mentorId,
+      turnNumber: event.turnNumber,
       speakerName: event.payload?.mentorName ?? event.mentorId,
       speakerRole: event.payload?.mentorRole ?? '',
       preAction: '',

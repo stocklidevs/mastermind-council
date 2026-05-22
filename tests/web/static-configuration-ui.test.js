@@ -49,6 +49,10 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /queueTranscriptSpeech/);
   assert.match(appJs, /queueSpeechContribution/);
   assert.match(appJs, /createSpeechChunks/);
+  assert.match(appJs, /createStreamingSpeechBuffer/);
+  assert.match(appJs, /prepareSpeechAudio/);
+  assert.match(appJs, /activeSpeechText/);
+  assert.match(appJs, /isTranscriptItemSpeaking/);
   assert.match(appJs, /item\.speakerId \?\? item\.mentorId/);
   assert.match(appJs, /logTtsClient/);
   assert.match(appJs, /playback_blocked/);
@@ -113,6 +117,8 @@ test('styles cache and secret warning states', () => {
   assert.match(stylesCss, /\.export-print/);
   assert.match(stylesCss, /\.rich-text/);
   assert.match(stylesCss, /\.rich-table-wrap/);
+  assert.match(stylesCss, /\.event-item\.is-voice-active/);
+  assert.match(stylesCss, /\.voice-reading/);
 });
 
 test('illuminates the session status while the council is initiating', () => {

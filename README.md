@@ -1,7 +1,7 @@
 # Mastermind
 
-![Tests](https://img.shields.io/badge/tests-181%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.13-blue)
+![Tests](https://img.shields.io/badge/tests-184%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.25.14-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -17,6 +17,7 @@ Current artifacts:
 
 - [Statement of Work](docs/sow.md)
 - [Research Notes](docs/reference/mastermind-llm-council-research.md)
+- [Voice Synchronization Notes](docs/voice-synchronization.md)
 - [Version](VERSION)
 - [Spec Kit Constitution](.specify/memory/constitution.md)
 - [Mock Council Protocol Spec](specs/001-mock-council-protocol/spec.md)
@@ -208,6 +209,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Browser TTS playback now logs safe client diagnostics and offers an `Enable voice` recovery button when autoplay blocks generated audio.
 - Voice playback now queues completed mentor contributions from mock and non-streaming real sessions, not only live council streams.
 - Live real TTS now resolves streamed mentor utterances by the live transcript mentor id, so `mentor.done` events actually queue the spoken audio.
+- Live council voice playback now uses progressive sentence-level speech chunks, prefetches audio while text continues streaming, and marks the transcript segment currently being read.
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Prompt/input cache capability display for provider/model combinations that support it.
@@ -349,6 +351,7 @@ Expected early workflow:
 35. Chunk long TTS utterances. Done for sequential OpenAI speech requests when mentor answers exceed request limits.
 36. Diagnose browser TTS playback. Done for safe client logs and user-gesture recovery when autoplay blocks generated speech.
 37. Queue TTS for completed transcripts. Done for mock and non-streaming real council sessions.
+38. Synchronize live text and voice. Done for progressive sentence-level TTS prefetch and active transcript voice state.
 
 ## License
 

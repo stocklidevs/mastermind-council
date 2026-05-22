@@ -49,7 +49,7 @@ import {
   buildOnePasswordReferenceFromDefaults,
   normalizeLocalSecretDefaults
 } from '/src/config/local-secret-defaults.js';
-import { createSpeechChunks } from '/src/web/tts-playback.js';
+import { createSpeechChunks, createStreamingSpeechBuffer } from '/src/web/tts-playback.js';
 
 const form = document.querySelector('#question-form');
 const input = document.querySelector('#question-input');
@@ -126,7 +126,10 @@ let speechQueue = [];
 let speechIsPlaying = false;
 let activeAudio = null;
 let activeSpeechMentorId = null;
+let activeSpeechTurnNumber = null;
+let activeSpeechText = '';
 let blockedSpeechPlayback = null;
+let streamingSpeechBuffers = new Map();
 let localSecretDefaults = null;
 const LIVE_EVENT_TYPES = [
   'session.started',
@@ -1146,8 +1149,9 @@ function renderTranscriptItem(item) {
     `;
   }
 
+  const voiceActive = isTranscriptItemSpeaking(item);
   return `
-    <article class="event-item contribution">
+    <article class="event-item contribution ${voiceActive ? 'is-voice-active' : ''}">
       <div class="event-meta">
         <span>${escapeHtml(item.stickLabel)}</span>
         <span>${escapeHtml(item.speakerRole)}</span>
@@ -1156,9 +1160,21 @@ function renderTranscriptItem(item) {
       ${item.preAction ? `<p class="action-note">${escapeHtml(item.preAction)}</p>` : ''}
       ${item.action ? `<p class="action-note">${escapeHtml(item.action)}</p>` : ''}
       ${item.utterance ? renderRichText(item.utterance) : ''}
+      ${voiceActive ? `<p class="voice-reading">${escapeHtml(activeSpeechText)}</p>` : ''}
       ${item.postAction ? `<p class="action-note after">${escapeHtml(item.postAction)}</p>` : ''}
     </article>
   `;
+}
+
+function isTranscriptItemSpeaking(item) {
+  const itemSpeakerId = item.speakerId ?? item.mentorId;
+  const itemTurnNumber = item.turnNumber ?? item.roundNumber ?? null;
+  return Boolean(
+    activeSpeechMentorId &&
+      activeSpeechText &&
+      itemSpeakerId === activeSpeechMentorId &&
+      (activeSpeechTurnNumber === null || itemTurnNumber === null || itemTurnNumber === activeSpeechTurnNumber)
+  );
 }
 
 function renderLiveTranscript(state) {
@@ -1246,10 +1262,36 @@ function buildMastermindOnePasswordReference(provider, vaultName) {
 }
 
 function queueMentorSpeech(event) {
+  if (event.type === 'mentor.token') {
+    const segments = streamingSpeechBufferForEvent(event).append(event.payload?.token ?? '');
+    queueSpeechSegments({
+      mentorId: event.mentorId,
+      turnNumber: event.turnNumber,
+      segments,
+      mentorName: event.payload?.mentorName,
+      mentorRole: event.payload?.mentorRole,
+      streaming: true
+    });
+    return;
+  }
+
   if (event.type !== 'mentor.done') return;
+  const flushed = flushStreamingSpeechBuffer(event);
+  if (flushed.hadBuffer) {
+    queueSpeechSegments({
+      mentorId: event.mentorId,
+      turnNumber: event.turnNumber,
+      segments: flushed.segments,
+      mentorName: event.payload?.mentorName,
+      streaming: true
+    });
+    return;
+  }
+
   const contribution = findLatestContribution(event.mentorId, event.turnNumber);
   queueSpeechContribution({
     mentorId: event.mentorId,
+    turnNumber: event.turnNumber,
     input: contribution?.utterance,
     mentorName: event.payload?.mentorName ?? contribution?.speakerName,
     mentorRole: contribution?.speakerRole
@@ -1263,6 +1305,7 @@ function queueTranscriptSpeech(model) {
   for (const contribution of contributions) {
     queueSpeechContribution({
       mentorId: contribution.speakerId,
+      turnNumber: contribution.turnNumber,
       input: contribution.utterance,
       mentorName: contribution.speakerName,
       mentorRole: contribution.speakerRole
@@ -1270,24 +1313,35 @@ function queueTranscriptSpeech(model) {
   }
 }
 
-function queueSpeechContribution({ mentorId, input, mentorName, mentorRole }) {
+function queueSpeechContribution({ mentorId, turnNumber = null, input, mentorName, mentorRole }) {
+  queueSpeechSegments({
+    mentorId,
+    turnNumber,
+    segments: createSpeechChunks(String(input ?? '').trim()),
+    mentorName,
+    mentorRole
+  });
+}
+
+function queueSpeechSegments({ mentorId, turnNumber = null, segments, mentorName, mentorRole, streaming = false }) {
   if (!ttsSettings.enabled) {
     setSessionStatus('Voice playback is off');
     return;
   }
   const mentor = mentors.find((item) => item.id === mentorId);
   if (mentor?.voice?.ttsEnabled === false) return;
-  const safeInput = String(input ?? '').trim();
-  if (!safeInput) return;
-  const chunks = createSpeechChunks(safeInput);
+  const chunks = segments.map((segment) => String(segment ?? '').trim()).filter(Boolean);
+  if (!chunks.length) return;
   logTtsClient('queued', {
     mentorId,
     chunks: chunks.length,
-    inputLength: safeInput.length
+    streaming,
+    inputLength: chunks.reduce((sum, chunk) => sum + chunk.length, 0)
   });
   speechQueue.push(
     ...chunks.map((chunk, index) => ({
       mentorId,
+      turnNumber,
       input: chunk,
       mentorName: mentor?.name ?? mentorName ?? 'Mentor',
       mentorRole: mentor?.role ?? mentorRole ?? 'Council mentor',
@@ -1296,10 +1350,34 @@ function queueSpeechContribution({ mentorId, input, mentorName, mentorRole }) {
       model: ttsSettings.model,
       speed: ttsSettings.speed,
       partNumber: index + 1,
-      partCount: chunks.length
+      partCount: streaming ? null : chunks.length,
+      streaming
     }))
   );
+  for (const item of speechQueue) {
+    item.audioPromise ??= prepareSpeechAudio(item);
+  }
   void playNextSpeech();
+}
+
+function streamingSpeechBufferForEvent(event) {
+  const key = speechBufferKey(event);
+  if (!streamingSpeechBuffers.has(key)) {
+    streamingSpeechBuffers.set(key, createStreamingSpeechBuffer());
+  }
+  return streamingSpeechBuffers.get(key);
+}
+
+function flushStreamingSpeechBuffer(event) {
+  const key = speechBufferKey(event);
+  const buffer = streamingSpeechBuffers.get(key);
+  if (!buffer) return { hadBuffer: false, segments: [] };
+  streamingSpeechBuffers.delete(key);
+  return { hadBuffer: true, segments: buffer.flush() };
+}
+
+function speechBufferKey(event) {
+  return `${event.sessionId ?? 'session'}:${event.turnNumber ?? 'turn'}:${event.mentorId ?? 'mentor'}`;
 }
 
 function findLatestContribution(mentorId, turnNumber) {
@@ -1319,43 +1397,14 @@ async function playNextSpeech() {
     const partLabel = item.partCount > 1 ? ` (${item.partNumber}/${item.partCount})` : '';
     setSessionStatus(`Generating voice for ${item.mentorName}${partLabel}`);
     setVoiceResumeVisible(false);
-    logTtsClient('request', {
-      mentorId: item.mentorId,
-      partNumber: item.partNumber,
-      partCount: item.partCount,
-      inputLength: item.input.length,
-      voice: item.voice,
-      model: item.model
-    });
-    const response = await fetch('/api/tts/openai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        input: item.input,
-        voice: item.voice,
-        model: item.model,
-        speed: item.speed,
-        mentorName: item.mentorName,
-        mentorRole: item.mentorRole,
-        mentorVoice: item.mentorVoice,
-        secret: publicOpenAiSecretReference()
-      })
-    });
-    if (!response.ok) {
-      throw new Error((await safeJsonError(response)) ?? 'voice-request-failed');
-    }
-    const audioBlob = await response.blob();
-    logTtsClient('response', {
-      mentorId: item.mentorId,
-      partNumber: item.partNumber,
-      partCount: item.partCount,
-      bytes: audioBlob.size,
-      contentType: audioBlob.type
-    });
-    audioUrl = URL.createObjectURL(audioBlob);
+    const audioResult = await (item.audioPromise ?? prepareSpeechAudio(item));
+    if (!audioResult.ok) throw new Error(audioResult.error);
+    audioUrl = URL.createObjectURL(audioResult.blob);
     activeAudio = new Audio(audioUrl);
     activeSpeechMentorId = item.mentorId;
-    updateRosterVoiceIndicators();
+    activeSpeechTurnNumber = item.turnNumber ?? null;
+    activeSpeechText = item.input;
+    refreshSpeechPlaybackUi();
     setSessionStatus(`${item.mentorName} voice playing${partLabel}`);
     await playActiveAudio(activeAudio);
     logTtsClient('played', {
@@ -1385,12 +1434,64 @@ async function playNextSpeech() {
     if (!blockedCurrentPlayback) {
       activeAudio = null;
       activeSpeechMentorId = null;
-      updateRosterVoiceIndicators();
+      activeSpeechTurnNumber = null;
+      activeSpeechText = '';
+      refreshSpeechPlaybackUi();
     }
     speechIsPlaying = false;
     if (!blockedSpeechPlayback && speechQueue.length > 0) {
       void playNextSpeech();
     }
+  }
+}
+
+async function prepareSpeechAudio(item) {
+  try {
+    logTtsClient('request', {
+      mentorId: item.mentorId,
+      partNumber: item.partNumber,
+      partCount: item.partCount,
+      streaming: item.streaming,
+      inputLength: item.input.length,
+      voice: item.voice,
+      model: item.model
+    });
+    const response = await fetch('/api/tts/openai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        input: item.input,
+        voice: item.voice,
+        model: item.model,
+        speed: item.speed,
+        mentorName: item.mentorName,
+        mentorRole: item.mentorRole,
+        mentorVoice: item.mentorVoice,
+        secret: publicOpenAiSecretReference()
+      })
+    });
+    if (!response.ok) {
+      throw new Error((await safeJsonError(response)) ?? 'voice-request-failed');
+    }
+    const blob = await response.blob();
+    logTtsClient('response', {
+      mentorId: item.mentorId,
+      partNumber: item.partNumber,
+      partCount: item.partCount,
+      streaming: item.streaming,
+      bytes: blob.size,
+      contentType: blob.type
+    });
+    return { ok: true, blob };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+function refreshSpeechPlaybackUi() {
+  updateRosterVoiceIndicators();
+  if (liveState) {
+    renderLiveTranscript(liveState);
   }
 }
 
@@ -1419,7 +1520,9 @@ async function resumeBlockedSpeechPlayback() {
   speechIsPlaying = true;
   activeAudio = blocked.audio;
   activeSpeechMentorId = blocked.item.mentorId;
-  updateRosterVoiceIndicators();
+  activeSpeechTurnNumber = blocked.item.turnNumber ?? null;
+  activeSpeechText = blocked.item.input;
+  refreshSpeechPlaybackUi();
   try {
     const partLabel = blocked.item.partCount > 1 ? ` (${blocked.item.partNumber}/${blocked.item.partCount})` : '';
     setSessionStatus(`${blocked.item.mentorName} voice playing${partLabel}`);
@@ -1445,7 +1548,9 @@ async function resumeBlockedSpeechPlayback() {
   } finally {
     activeAudio = null;
     activeSpeechMentorId = null;
-    updateRosterVoiceIndicators();
+    activeSpeechTurnNumber = null;
+    activeSpeechText = '';
+    refreshSpeechPlaybackUi();
     speechIsPlaying = false;
     if (speechQueue.length > 0) {
       void playNextSpeech();
@@ -1455,6 +1560,7 @@ async function resumeBlockedSpeechPlayback() {
 
 function stopTtsPlayback() {
   speechQueue = [];
+  streamingSpeechBuffers.clear();
   if (blockedSpeechPlayback) {
     URL.revokeObjectURL(blockedSpeechPlayback.audioUrl);
     blockedSpeechPlayback = null;
@@ -1466,7 +1572,9 @@ function stopTtsPlayback() {
   }
   speechIsPlaying = false;
   activeSpeechMentorId = null;
-  updateRosterVoiceIndicators();
+  activeSpeechTurnNumber = null;
+  activeSpeechText = '';
+  refreshSpeechPlaybackUi();
   setSessionStatus('Voice stopped');
 }
 
