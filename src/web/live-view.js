@@ -187,6 +187,7 @@ function ensureContribution(state, event) {
     contribution = {
       type: 'contribution',
       mentorId: event.mentorId,
+      speakerId: event.mentorId,
       speakerName: event.payload?.mentorName ?? event.mentorId,
       speakerRole: event.payload?.mentorRole ?? '',
       preAction: '',

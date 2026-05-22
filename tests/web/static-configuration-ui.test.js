@@ -46,7 +46,10 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /\/api\/tts\/openai/);
   assert.match(appJs, /\/api\/council\/live-config/);
   assert.match(appJs, /queueMentorSpeech/);
+  assert.match(appJs, /queueTranscriptSpeech/);
+  assert.match(appJs, /queueSpeechContribution/);
   assert.match(appJs, /createSpeechChunks/);
+  assert.match(appJs, /item\.speakerId \?\? item\.mentorId/);
   assert.match(appJs, /logTtsClient/);
   assert.match(appJs, /playback_blocked/);
   assert.match(appJs, /resumeBlockedSpeechPlayback/);

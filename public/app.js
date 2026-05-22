@@ -1247,27 +1247,50 @@ function buildMastermindOnePasswordReference(provider, vaultName) {
 
 function queueMentorSpeech(event) {
   if (event.type !== 'mentor.done') return;
+  const contribution = findLatestContribution(event.mentorId, event.turnNumber);
+  queueSpeechContribution({
+    mentorId: event.mentorId,
+    input: contribution?.utterance,
+    mentorName: event.payload?.mentorName ?? contribution?.speakerName,
+    mentorRole: contribution?.speakerRole
+  });
+}
+
+function queueTranscriptSpeech(model) {
+  const contributions = model.rounds
+    .flatMap((round) => round.items)
+    .filter((item) => item.type === 'contribution');
+  for (const contribution of contributions) {
+    queueSpeechContribution({
+      mentorId: contribution.speakerId,
+      input: contribution.utterance,
+      mentorName: contribution.speakerName,
+      mentorRole: contribution.speakerRole
+    });
+  }
+}
+
+function queueSpeechContribution({ mentorId, input, mentorName, mentorRole }) {
   if (!ttsSettings.enabled) {
     setSessionStatus('Voice playback is off');
     return;
   }
-  const mentor = mentors.find((item) => item.id === event.mentorId);
+  const mentor = mentors.find((item) => item.id === mentorId);
   if (mentor?.voice?.ttsEnabled === false) return;
-  const contribution = findLatestContribution(event.mentorId, event.turnNumber);
-  const input = contribution?.utterance?.trim();
-  if (!input) return;
-  const chunks = createSpeechChunks(input);
+  const safeInput = String(input ?? '').trim();
+  if (!safeInput) return;
+  const chunks = createSpeechChunks(safeInput);
   logTtsClient('queued', {
-    mentorId: event.mentorId,
+    mentorId,
     chunks: chunks.length,
-    inputLength: input.length
+    inputLength: safeInput.length
   });
   speechQueue.push(
     ...chunks.map((chunk, index) => ({
-      mentorId: event.mentorId,
+      mentorId,
       input: chunk,
-      mentorName: mentor?.name ?? event.payload?.mentorName ?? contribution.speakerName,
-      mentorRole: mentor?.role ?? contribution.speakerRole,
+      mentorName: mentor?.name ?? mentorName ?? 'Mentor',
+      mentorRole: mentor?.role ?? mentorRole ?? 'Council mentor',
       mentorVoice: mentor?.voice ?? {},
       voice: mentor?.voice?.openAiVoice ?? ttsSettings.voice,
       model: ttsSettings.model,
@@ -1282,7 +1305,7 @@ function queueMentorSpeech(event) {
 function findLatestContribution(mentorId, turnNumber) {
   const round = liveState?.rounds?.find((item) => item.number === turnNumber) ?? liveState?.rounds?.at(-1);
   return round?.items
-    ?.filter((item) => item.type === 'contribution' && item.speakerId === mentorId)
+    ?.filter((item) => item.type === 'contribution' && (item.speakerId ?? item.mentorId) === mentorId)
     .at(-1);
 }
 
@@ -1551,6 +1574,7 @@ async function runRealSession(question) {
   renderSynthesis(model.synthesis);
   saveSessionHistoryFromViewModel(model, 'real');
   setSessionStatus('Real session complete');
+  queueTranscriptSpeech(model);
   const stickLabel = firstContribution?.stickLabel ?? 'Speaking stick rests on the table.';
   stickStatus.textContent = stickLabel;
   mobileStickStatus.textContent = stickLabel;
@@ -1682,6 +1706,7 @@ function runMockSession(question) {
   renderSynthesis(model.synthesis);
   saveSessionHistoryFromViewModel(model, 'mock');
   setSessionStatus('Session complete');
+  queueTranscriptSpeech(model);
   const stickLabel = firstContribution?.stickLabel ?? 'Speaking stick rests on the table.';
   stickStatus.textContent = stickLabel;
   mobileStickStatus.textContent = stickLabel;

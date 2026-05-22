@@ -1,7 +1,7 @@
 # Mastermind
 
 ![Tests](https://img.shields.io/badge/tests-181%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.12-blue)
+![Version](https://img.shields.io/badge/version-0.25.13-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -206,6 +206,8 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Mentor transcript output now renders sanitized markdown-style paragraphs, lists, inline emphasis, code, and simple tables with polished council styling.
 - OpenAI TTS now splits long mentor utterances into safe sequential speech requests so rich council answers can still be voiced.
 - Browser TTS playback now logs safe client diagnostics and offers an `Enable voice` recovery button when autoplay blocks generated audio.
+- Voice playback now queues completed mentor contributions from mock and non-streaming real sessions, not only live council streams.
+- Live real TTS now resolves streamed mentor utterances by the live transcript mentor id, so `mentor.done` events actually queue the spoken audio.
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Prompt/input cache capability display for provider/model combinations that support it.
@@ -346,6 +348,7 @@ Expected early workflow:
 34. Format mentor markdown output. Done for sanitized paragraph, list, emphasis, code, and simple table rendering in the transcript.
 35. Chunk long TTS utterances. Done for sequential OpenAI speech requests when mentor answers exceed request limits.
 36. Diagnose browser TTS playback. Done for safe client logs and user-gesture recovery when autoplay blocks generated speech.
+37. Queue TTS for completed transcripts. Done for mock and non-streaming real council sessions.
 
 ## License
 
