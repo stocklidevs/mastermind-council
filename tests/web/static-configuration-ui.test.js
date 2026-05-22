@@ -79,6 +79,9 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /localStorage/);
   assert.match(appJs, /updateMentorModel/);
   assert.match(appJs, /updateMentorCharacteristics/);
+  assert.match(appJs, /renderRichText/);
+  assert.match(appJs, /renderMarkdownTable/);
+  assert.match(appJs, /renderInlineMarkdown/);
   assert.match(appJs, /data-mentor-identity/);
   assert.match(appJs, /buildPromptProfilePreview/);
   assert.match(appJs, /transcriptShouldAutoScroll/);
@@ -99,6 +102,8 @@ test('styles cache and secret warning states', () => {
   assert.match(stylesCss, /\.speaker-indicator\.is-muted/);
   assert.match(stylesCss, /\.speaker-indicator\.is-playing \.speaker-wave/);
   assert.match(stylesCss, /\.export-print/);
+  assert.match(stylesCss, /\.rich-text/);
+  assert.match(stylesCss, /\.rich-table-wrap/);
 });
 
 test('illuminates the session status while the council is initiating', () => {

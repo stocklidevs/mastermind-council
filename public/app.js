@@ -299,6 +299,114 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
+function renderRichText(value) {
+  const lines = String(value ?? '').replaceAll('\r\n', '\n').split('\n');
+  const blocks = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    if (!lines[index].trim()) {
+      index += 1;
+      continue;
+    }
+
+    if (isMarkdownTableStart(lines, index)) {
+      const tableLines = [lines[index], lines[index + 1]];
+      index += 2;
+      while (index < lines.length && lines[index].includes('|') && lines[index].trim()) {
+        tableLines.push(lines[index]);
+        index += 1;
+      }
+      blocks.push(renderMarkdownTable(tableLines));
+      continue;
+    }
+
+    const listMatch = parseListLine(lines[index]);
+    if (listMatch) {
+      const ordered = listMatch.ordered;
+      const items = [];
+      while (index < lines.length) {
+        const item = parseListLine(lines[index]);
+        if (!item || item.ordered !== ordered) break;
+        items.push(item.text);
+        index += 1;
+      }
+      const tag = ordered ? 'ol' : 'ul';
+      blocks.push(`<${tag}>${items.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join('')}</${tag}>`);
+      continue;
+    }
+
+    const paragraph = [];
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !parseListLine(lines[index]) &&
+      !isMarkdownTableStart(lines, index)
+    ) {
+      paragraph.push(lines[index].trim());
+      index += 1;
+    }
+    blocks.push(`<p>${renderInlineMarkdown(paragraph.join(' '))}</p>`);
+  }
+
+  return `<div class="rich-text">${blocks.join('')}</div>`;
+}
+
+function renderInlineMarkdown(value) {
+  const codeSnippets = [];
+  let text = escapeHtml(value).replace(/`([^`]+)`/g, (_match, code) => {
+    const marker = `@@CODE${codeSnippets.length}@@`;
+    codeSnippets.push(`<code>${code}</code>`);
+    return marker;
+  });
+  text = text
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  return codeSnippets.reduce((output, snippet, index) => output.replace(`@@CODE${index}@@`, snippet), text);
+}
+
+function parseListLine(line) {
+  const unordered = line.match(/^\s*[-*+]\s+(.+)$/);
+  if (unordered) return { ordered: false, text: unordered[1] };
+  const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+  if (ordered) return { ordered: true, text: ordered[1] };
+  return null;
+}
+
+function isMarkdownTableStart(lines, index) {
+  return Boolean(
+    lines[index]?.includes('|') &&
+      lines[index + 1] &&
+      /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[index + 1])
+  );
+}
+
+function renderMarkdownTable(lines) {
+  const headers = splitMarkdownTableRow(lines[0]);
+  const rows = lines.slice(2).map(splitMarkdownTableRow).filter((row) => row.length);
+  return `
+    <div class="rich-table-wrap">
+      <table>
+        <thead><tr>${headers.map((cell) => `<th>${renderInlineMarkdown(cell)}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${rows
+            .map((row) => `<tr>${headers.map((_header, index) => `<td>${renderInlineMarkdown(row[index] ?? '')}</td>`).join('')}</tr>`)
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function splitMarkdownTableRow(line) {
+  return String(line ?? '')
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim());
+}
+
 function renderRoster(members, activeSpeakerId) {
   roster.innerHTML = members
     .map((member) => {
@@ -1036,7 +1144,7 @@ function renderTranscriptItem(item) {
       <h3>${escapeHtml(item.speakerName)}</h3>
       ${item.preAction ? `<p class="action-note">${escapeHtml(item.preAction)}</p>` : ''}
       ${item.action ? `<p class="action-note">${escapeHtml(item.action)}</p>` : ''}
-      <p>${escapeHtml(item.utterance)}</p>
+      ${item.utterance ? renderRichText(item.utterance) : ''}
       ${item.postAction ? `<p class="action-note after">${escapeHtml(item.postAction)}</p>` : ''}
     </article>
   `;

@@ -1,7 +1,7 @@
 # Mastermind
 
 ![Tests](https://img.shields.io/badge/tests-178%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.9-blue)
+![Version](https://img.shields.io/badge/version-0.25.10-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -203,6 +203,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Provider secret settings now persist locally, and the Providers tab includes a 1Password defaults helper for applying generic provider key names across configured providers.
 - Local-only 1Password defaults can now be restored from ignored `public/local-secret-defaults.json`, so public Git history stays generic while a personal machine can keep its real vault, account, and item names working.
 - The local 1Password defaults loader now fetches the file from the served `/public/` path, so startup restores provider references instead of leaving stale generic references in place.
+- Mentor transcript output now renders sanitized markdown-style paragraphs, lists, inline emphasis, code, and simple tables with polished council styling.
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Prompt/input cache capability display for provider/model combinations that support it.
@@ -340,6 +341,7 @@ Expected early workflow:
 31. Harden public repository metadata. Done for MIT licensing, synced package metadata, and generic smoke-test secret references.
 32. Add PDF consultation export. Done for print-to-PDF export of current and saved council discussions.
 33. Add OpenAI TTS playback. Done for configurable AI voice playback of completed live mentor utterances.
+34. Format mentor markdown output. Done for sanitized paragraph, list, emphasis, code, and simple table rendering in the transcript.
 
 ## License
 
