@@ -8,6 +8,7 @@ const stylesCss = await readFile(new URL('../../public/styles.css', import.meta.
 
 test('renders provider and mentor configuration landmarks', () => {
   assert.match(indexHtml, /id="settings-toggle"/);
+  assert.match(indexHtml, /id="voice-resume"/);
   assert.match(indexHtml, /id="runtime-mode"/);
   assert.match(indexHtml, /id="settings-drawer"/);
   assert.match(indexHtml, /Live real council/);
@@ -46,6 +47,9 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /\/api\/council\/live-config/);
   assert.match(appJs, /queueMentorSpeech/);
   assert.match(appJs, /createSpeechChunks/);
+  assert.match(appJs, /logTtsClient/);
+  assert.match(appJs, /playback_blocked/);
+  assert.match(appJs, /resumeBlockedSpeechPlayback/);
   assert.match(appJs, /createLiveConfigId/);
   assert.match(appJs, /synthesisProviderId=/);
   assert.match(appJs, /synthesisModelId=/);
@@ -99,6 +103,7 @@ test('styles cache and secret warning states', () => {
   assert.match(stylesCss, /\.toggle-control/);
   assert.match(stylesCss, /\.tts-settings/);
   assert.match(stylesCss, /\.voice-status/);
+  assert.match(stylesCss, /\.voice-resume/);
   assert.match(stylesCss, /\.speaker-indicator/);
   assert.match(stylesCss, /\.speaker-indicator\.is-muted/);
   assert.match(stylesCss, /\.speaker-indicator\.is-playing \.speaker-wave/);

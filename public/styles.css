@@ -228,6 +228,19 @@ h2 {
   background-size: 220% 100%;
 }
 
+.voice-resume {
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 800;
+}
+
+.voice-resume[hidden] {
+  display: none;
+}
+
 .mentor-row.state-thinking .voice-dot {
   animation: thinking-sheen 1.3s ease-in-out infinite;
 }

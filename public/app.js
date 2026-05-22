@@ -59,6 +59,7 @@ const roster = document.querySelector('#council-roster');
 const transcript = document.querySelector('#transcript');
 const synthesis = document.querySelector('#synthesis');
 const status = document.querySelector('#session-status');
+const voiceResume = document.querySelector('#voice-resume');
 const stickStatus = document.querySelector('#stick-status');
 const mobileStickStatus = document.querySelector('#mobile-stick-status');
 const synthesisModelLabel = document.querySelector('#synthesis-model-label');
@@ -125,6 +126,7 @@ let speechQueue = [];
 let speechIsPlaying = false;
 let activeAudio = null;
 let activeSpeechMentorId = null;
+let blockedSpeechPlayback = null;
 let localSecretDefaults = null;
 const LIVE_EVENT_TYPES = [
   'session.started',
@@ -153,6 +155,14 @@ let secretReferences = loadSecretReferences();
 function setSessionStatus(label, { initiating = false } = {}) {
   status.textContent = label;
   status.classList.toggle('is-initiating', initiating);
+}
+
+function logTtsClient(event, fields = {}) {
+  console.info('[mastermind:tts]', event, fields);
+}
+
+function setVoiceResumeVisible(visible) {
+  voiceResume.hidden = !visible;
 }
 
 function effectiveProviders() {
@@ -1247,6 +1257,11 @@ function queueMentorSpeech(event) {
   const input = contribution?.utterance?.trim();
   if (!input) return;
   const chunks = createSpeechChunks(input);
+  logTtsClient('queued', {
+    mentorId: event.mentorId,
+    chunks: chunks.length,
+    inputLength: input.length
+  });
   speechQueue.push(
     ...chunks.map((chunk, index) => ({
       mentorId: event.mentorId,
@@ -1272,12 +1287,23 @@ function findLatestContribution(mentorId, turnNumber) {
 }
 
 async function playNextSpeech() {
-  if (speechIsPlaying || speechQueue.length === 0) return;
+  if (speechIsPlaying || blockedSpeechPlayback || speechQueue.length === 0) return;
   speechIsPlaying = true;
   const item = speechQueue.shift();
+  let audioUrl = '';
+  let blockedCurrentPlayback = false;
   try {
     const partLabel = item.partCount > 1 ? ` (${item.partNumber}/${item.partCount})` : '';
     setSessionStatus(`Generating voice for ${item.mentorName}${partLabel}`);
+    setVoiceResumeVisible(false);
+    logTtsClient('request', {
+      mentorId: item.mentorId,
+      partNumber: item.partNumber,
+      partCount: item.partCount,
+      inputLength: item.input.length,
+      voice: item.voice,
+      model: item.model
+    });
     const response = await fetch('/api/tts/openai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1296,19 +1322,103 @@ async function playNextSpeech() {
       throw new Error((await safeJsonError(response)) ?? 'voice-request-failed');
     }
     const audioBlob = await response.blob();
-    const audioUrl = URL.createObjectURL(audioBlob);
+    logTtsClient('response', {
+      mentorId: item.mentorId,
+      partNumber: item.partNumber,
+      partCount: item.partCount,
+      bytes: audioBlob.size,
+      contentType: audioBlob.type
+    });
+    audioUrl = URL.createObjectURL(audioBlob);
     activeAudio = new Audio(audioUrl);
     activeSpeechMentorId = item.mentorId;
     updateRosterVoiceIndicators();
     setSessionStatus(`${item.mentorName} voice playing${partLabel}`);
-    await activeAudio.play();
-    await new Promise((resolve) => {
-      activeAudio.addEventListener('ended', resolve, { once: true });
-      activeAudio.addEventListener('error', resolve, { once: true });
+    await playActiveAudio(activeAudio);
+    logTtsClient('played', {
+      mentorId: item.mentorId,
+      partNumber: item.partNumber,
+      partCount: item.partCount
     });
-    URL.revokeObjectURL(audioUrl);
   } catch (voiceError) {
+    if (isPlaybackBlocked(voiceError) && activeAudio && audioUrl) {
+      blockedCurrentPlayback = true;
+      blockedSpeechPlayback = { item, audio: activeAudio, audioUrl };
+      setVoiceResumeVisible(true);
+      setSessionStatus('Voice ready - click Enable voice');
+      logTtsClient('playback_blocked', {
+        mentorId: item.mentorId,
+        reason: voiceError.name || voiceError.message
+      });
+      return;
+    }
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
     setSessionStatus(`Voice unavailable: ${voiceError.message}`);
+    logTtsClient('error', {
+      mentorId: item.mentorId,
+      reason: voiceError.message
+    });
+  } finally {
+    if (!blockedCurrentPlayback) {
+      activeAudio = null;
+      activeSpeechMentorId = null;
+      updateRosterVoiceIndicators();
+    }
+    speechIsPlaying = false;
+    if (!blockedSpeechPlayback && speechQueue.length > 0) {
+      void playNextSpeech();
+    }
+  }
+}
+
+async function playActiveAudio(audio) {
+  await audio.play();
+  await new Promise((resolve) => {
+    audio.addEventListener('ended', resolve, { once: true });
+    audio.addEventListener('error', resolve, { once: true });
+  });
+}
+
+function isPlaybackBlocked(error) {
+  return error?.name === 'NotAllowedError' || /notallowed|user.*interact|gesture|autoplay/i.test(error?.message ?? '');
+}
+
+async function resumeBlockedSpeechPlayback() {
+  const blocked = blockedSpeechPlayback;
+  if (!blocked) {
+    setVoiceResumeVisible(false);
+    void playNextSpeech();
+    return;
+  }
+
+  blockedSpeechPlayback = null;
+  setVoiceResumeVisible(false);
+  speechIsPlaying = true;
+  activeAudio = blocked.audio;
+  activeSpeechMentorId = blocked.item.mentorId;
+  updateRosterVoiceIndicators();
+  try {
+    const partLabel = blocked.item.partCount > 1 ? ` (${blocked.item.partNumber}/${blocked.item.partCount})` : '';
+    setSessionStatus(`${blocked.item.mentorName} voice playing${partLabel}`);
+    logTtsClient('resume_click', {
+      mentorId: blocked.item.mentorId,
+      partNumber: blocked.item.partNumber,
+      partCount: blocked.item.partCount
+    });
+    await playActiveAudio(blocked.audio);
+    URL.revokeObjectURL(blocked.audioUrl);
+    logTtsClient('played_after_resume', {
+      mentorId: blocked.item.mentorId,
+      partNumber: blocked.item.partNumber,
+      partCount: blocked.item.partCount
+    });
+  } catch (voiceError) {
+    URL.revokeObjectURL(blocked.audioUrl);
+    setSessionStatus(`Voice unavailable: ${voiceError.message}`);
+    logTtsClient('resume_error', {
+      mentorId: blocked.item.mentorId,
+      reason: voiceError.message
+    });
   } finally {
     activeAudio = null;
     activeSpeechMentorId = null;
@@ -1322,6 +1432,11 @@ async function playNextSpeech() {
 
 function stopTtsPlayback() {
   speechQueue = [];
+  if (blockedSpeechPlayback) {
+    URL.revokeObjectURL(blockedSpeechPlayback.audioUrl);
+    blockedSpeechPlayback = null;
+  }
+  setVoiceResumeVisible(false);
   if (activeAudio) {
     activeAudio.pause();
     activeAudio.currentTime = 0;
@@ -1786,6 +1901,10 @@ themeToggle.addEventListener('click', () => {
   const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
   root.dataset.theme = next;
   themeToggle.textContent = next === 'dark' ? 'Light' : 'Dark';
+});
+
+voiceResume.addEventListener('click', () => {
+  void resumeBlockedSpeechPlayback();
 });
 
 settingsToggle.addEventListener('click', () => {
