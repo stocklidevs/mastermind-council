@@ -1,7 +1,7 @@
 # Mastermind
 
-![Tests](https://img.shields.io/badge/tests-178%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.10-blue)
+![Tests](https://img.shields.io/badge/tests-181%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.25.11-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -204,6 +204,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Local-only 1Password defaults can now be restored from ignored `public/local-secret-defaults.json`, so public Git history stays generic while a personal machine can keep its real vault, account, and item names working.
 - The local 1Password defaults loader now fetches the file from the served `/public/` path, so startup restores provider references instead of leaving stale generic references in place.
 - Mentor transcript output now renders sanitized markdown-style paragraphs, lists, inline emphasis, code, and simple tables with polished council styling.
+- OpenAI TTS now splits long mentor utterances into safe sequential speech requests so rich council answers can still be voiced.
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Prompt/input cache capability display for provider/model combinations that support it.
@@ -342,6 +343,7 @@ Expected early workflow:
 32. Add PDF consultation export. Done for print-to-PDF export of current and saved council discussions.
 33. Add OpenAI TTS playback. Done for configurable AI voice playback of completed live mentor utterances.
 34. Format mentor markdown output. Done for sanitized paragraph, list, emphasis, code, and simple table rendering in the transcript.
+35. Chunk long TTS utterances. Done for sequential OpenAI speech requests when mentor answers exceed request limits.
 
 ## License
 

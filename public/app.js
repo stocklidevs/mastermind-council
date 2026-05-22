@@ -49,6 +49,7 @@ import {
   buildOnePasswordReferenceFromDefaults,
   normalizeLocalSecretDefaults
 } from '/src/config/local-secret-defaults.js';
+import { createSpeechChunks } from '/src/web/tts-playback.js';
 
 const form = document.querySelector('#question-form');
 const input = document.querySelector('#question-input');
@@ -1245,16 +1246,21 @@ function queueMentorSpeech(event) {
   const contribution = findLatestContribution(event.mentorId, event.turnNumber);
   const input = contribution?.utterance?.trim();
   if (!input) return;
-  speechQueue.push({
-    mentorId: event.mentorId,
-    input,
-    mentorName: mentor?.name ?? event.payload?.mentorName ?? contribution.speakerName,
-    mentorRole: mentor?.role ?? contribution.speakerRole,
-    mentorVoice: mentor?.voice ?? {},
-    voice: mentor?.voice?.openAiVoice ?? ttsSettings.voice,
-    model: ttsSettings.model,
-    speed: ttsSettings.speed
-  });
+  const chunks = createSpeechChunks(input);
+  speechQueue.push(
+    ...chunks.map((chunk, index) => ({
+      mentorId: event.mentorId,
+      input: chunk,
+      mentorName: mentor?.name ?? event.payload?.mentorName ?? contribution.speakerName,
+      mentorRole: mentor?.role ?? contribution.speakerRole,
+      mentorVoice: mentor?.voice ?? {},
+      voice: mentor?.voice?.openAiVoice ?? ttsSettings.voice,
+      model: ttsSettings.model,
+      speed: ttsSettings.speed,
+      partNumber: index + 1,
+      partCount: chunks.length
+    }))
+  );
   void playNextSpeech();
 }
 
@@ -1270,7 +1276,8 @@ async function playNextSpeech() {
   speechIsPlaying = true;
   const item = speechQueue.shift();
   try {
-    setSessionStatus(`Generating voice for ${item.mentorName}`);
+    const partLabel = item.partCount > 1 ? ` (${item.partNumber}/${item.partCount})` : '';
+    setSessionStatus(`Generating voice for ${item.mentorName}${partLabel}`);
     const response = await fetch('/api/tts/openai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1293,7 +1300,7 @@ async function playNextSpeech() {
     activeAudio = new Audio(audioUrl);
     activeSpeechMentorId = item.mentorId;
     updateRosterVoiceIndicators();
-    setSessionStatus(`${item.mentorName} voice playing`);
+    setSessionStatus(`${item.mentorName} voice playing${partLabel}`);
     await activeAudio.play();
     await new Promise((resolve) => {
       activeAudio.addEventListener('ended', resolve, { once: true });
