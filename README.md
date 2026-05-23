@@ -1,13 +1,19 @@
 # Mastermind
 
 ![Tests](https://img.shields.io/badge/tests-191%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.19-blue)
+![Version](https://img.shields.io/badge/version-0.25.20-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
 Mastermind is an early-stage local-first web app concept for consulting a council of LLM mentors. Instead of asking one model for one answer, the app will let multiple council members deliberate through structured rounds, claim a shared speaking stick, abstain when they have nothing useful to add, preserve dissent, and synthesize a final response for the user.
 
 The product goal is a council that feels ceremonial but useful: a place where different model strengths, personalities, and reasoning styles can illuminate a question from several angles without pretending that consensus is always truth.
+
+## Screenshots
+
+![Mastermind council workspace](docs/screenshots/mastermind-council.png)
+
+![Mastermind session settings](docs/screenshots/mastermind-settings.png)
 
 ## Status
 
