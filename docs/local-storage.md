@@ -16,3 +16,5 @@ Stored browser sections:
 The Session settings tab can export and import these sections as a JSON backup. Backup import ignores unknown keys and only restores approved Mastermind storage keys. The backup guard rejects plaintext API-key-looking secret references; use 1Password references or environment-variable names instead.
 
 Resolved API keys should remain server-side only. Do not place raw provider keys in localStorage, `public/local-secret-defaults.json`, exported backups, screenshots, logs, or Git history.
+
+The local web server binds to `127.0.0.1` and protects secret-backed endpoints with a per-process local access token. `public/local-secret-defaults.json` remains the private machine-local defaults file, but it is read through `/api/local-secret-defaults` and is blocked from static file serving.

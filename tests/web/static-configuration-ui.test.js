@@ -49,6 +49,8 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /updateRosterVoiceIndicators/);
   assert.match(appJs, /\/api\/tts\/openai/);
   assert.match(appJs, /\/api\/council\/live-config/);
+  assert.match(appJs, /loadLocalAccessToken/);
+  assert.match(appJs, /X-Mastermind-Local-Token/);
   assert.match(appJs, /queueMentorSpeech/);
   assert.match(appJs, /queueTranscriptSpeech/);
   assert.match(appJs, /queueSpeechContribution/);
@@ -91,7 +93,8 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /persistSecretReferences/);
   assert.match(appJs, /data-apply-mastermind-secret-preset/);
   assert.match(appJs, /buildMastermindOnePasswordReference/);
-  assert.match(appJs, /\/public\/local-secret-defaults\.json/);
+  assert.match(appJs, /\/api\/local-secret-defaults/);
+  assert.doesNotMatch(appJs, /\/public\/local-secret-defaults\.json/);
   assert.match(appJs, /applyLocalSecretDefaults/);
   assert.match(appJs, /ONE_PASSWORD_ACCOUNT/);
   assert.match(appJs, /members=/);

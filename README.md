@@ -1,7 +1,7 @@
 # Mastermind
 
-![Tests](https://img.shields.io/badge/tests-188%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.18-blue)
+![Tests](https://img.shields.io/badge/tests-191%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.25.19-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -217,6 +217,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Local storage now persists custom provider catalogs and can export/import a local JSON backup for consultations, presets, mentors, provider settings, TTS settings, theme, and safe secret references.
+- The local web server now binds to `127.0.0.1`, serves only explicit browser assets, blocks ignored local defaults from static access, and requires a per-process local access token for secret-backed APIs.
 - Prompt/input cache capability display for provider/model combinations that support it.
 - Saved sessions and council presets.
 
@@ -261,9 +262,9 @@ Run the local mock council web UI:
 npm.cmd run serve
 ```
 
-Then open `http://localhost:4173`.
+Then open `http://127.0.0.1:4173`.
 
-The app now convenes `Live real council` by default. It calls the local Node endpoint at `/api/council/live` and streams public-safe server-sent events while keys resolve only in Node.
+The app now convenes `Live real council` by default. It calls the local Node endpoint at `/api/council/live` and streams public-safe server-sent events while keys resolve only in Node. The local server binds to `127.0.0.1` and the browser obtains a per-process local access token before calling secret-backed APIs.
 
 When the local server handles real council requests, it emits JSON-line diagnostic events to stdout. These logs include request, provider start, provider completion, and provider error events with mentor/provider/model identifiers, latency, contribution length, and session ids. Secrets and `op://` references are never written to the logs.
 
@@ -275,7 +276,7 @@ OpenAI voice playback is optional and enabled by default for fresh sessions. You
 
 Provider API keys can be set from the Providers tab. Use the 1Password defaults helper with your vault and optional account domain to apply references such as `op://Your Vault/OpenAI API Key/credential`, `op://Your Vault/Anthropic API Key/credential`, and `op://Your Vault/xAI API Key/credential` across configured providers. The references and account domain are stored locally in the browser; resolved keys remain server-side only.
 
-For a private local machine, copy `public/local-secret-defaults.example.json` to `public/local-secret-defaults.json` and put your real vault, account, and item names there. That file is ignored by Git. When present, the app loads it on startup and restores the local 1Password references that should be used by the Providers tab without changing the visible session status.
+For a private local machine, copy `public/local-secret-defaults.example.json` to `public/local-secret-defaults.json` and put your real vault, account, and item names there. That file is ignored by Git. When present, the app loads it through the token-protected local defaults endpoint and restores the local 1Password references that should be used by the Providers tab without changing the visible session status. The file is not served as a static asset.
 
 Local backups are available from Session settings. `Export JSON` downloads saved consultations, session history, council presets, current mentors, custom providers, voice settings, theme, and local secret references. The backup path accepts environment-variable names and 1Password references, but blocks plaintext API-key-looking values so resolved secrets do not travel through browser storage.
 
@@ -363,6 +364,7 @@ Expected early workflow:
 40. Simplify runtime and persist theme. Done for Live Real Council default, silent local 1Password defaults, and stored light/dark mode.
 41. Strengthen initiating status feedback. Done for faster sweep, brighter status fill, and glow pulse.
 42. Improve local storage. Done for persistent custom providers and local backup export/import with plaintext-secret guards.
+43. Harden local server privacy boundary. Done for localhost-only serve, token-gated secret APIs, restricted static assets, and protected local defaults loading.
 
 ## License
 

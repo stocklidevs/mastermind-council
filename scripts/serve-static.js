@@ -1,6 +1,8 @@
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleRealCouncilRequest } from '../src/server/real-council-handler.js';
 import { handleLiveCouncilRequest } from '../src/server/live-council-handler.js';
@@ -15,26 +17,45 @@ const contentTypes = {
   '.json': 'application/json; charset=utf-8'
 };
 
-export function createAppServer({ root = process.cwd(), logger = createRuntimeLogger() } = {}) {
+export function createAppServer({ root = process.cwd(), logger = createRuntimeLogger(), localAccessToken = createLocalAccessToken() } = {}) {
   const normalizedRoot = normalize(root);
   const liveConfigs = createLiveConfigStore();
-  return createServer(async (request, response) => {
+  const server = createServer(async (request, response) => {
+    if (request.url === '/api/local-access-token' && request.method === 'GET') {
+      if (!isLoopbackRequest(request)) {
+        writeJson(response, 403, { error: 'local-request-required' });
+        return;
+      }
+      writeJson(response, 200, { token: localAccessToken });
+      return;
+    }
+
+    if (request.url === '/api/local-secret-defaults' && request.method === 'GET') {
+      if (!authorizeLocalRequest(request, response, localAccessToken)) return;
+      await handleLocalSecretDefaultsApi(response, normalizedRoot);
+      return;
+    }
+
     if (request.url === '/api/council/real' && request.method === 'POST') {
+      if (!authorizeLocalRequest(request, response, localAccessToken)) return;
       await handleRealCouncilApi(request, response, logger);
       return;
     }
 
     if (request.url?.startsWith('/api/council/live') && request.method === 'GET') {
+      if (!authorizeLocalRequest(request, response, localAccessToken)) return;
       await handleLiveCouncilApi(request, response, logger, liveConfigs);
       return;
     }
 
     if (request.url === '/api/council/live-config' && request.method === 'POST') {
+      if (!authorizeLocalRequest(request, response, localAccessToken)) return;
       await handleLiveConfigApi(request, response, liveConfigs);
       return;
     }
 
     if (request.url === '/api/tts/openai' && request.method === 'POST') {
+      if (!authorizeLocalRequest(request, response, localAccessToken)) return;
       await handleOpenAiTtsApi(request, response, logger);
       return;
     }
@@ -56,6 +77,8 @@ export function createAppServer({ root = process.cwd(), logger = createRuntimeLo
     });
     createReadStream(filePath).pipe(response);
   });
+  server.localAccessToken = localAccessToken;
+  return server;
 }
 
 async function handleLiveCouncilApi(request, response, logger, liveConfigs) {
@@ -80,7 +103,30 @@ function resolvePath(url, root) {
   const target = normalize(join(root, pathname));
 
   if (!target.startsWith(root)) return null;
+  if (!isAllowedStaticPath(root, target, pathname)) return null;
   return target;
+}
+
+function isAllowedStaticPath(root, target, pathname) {
+  if (pathname === '/public/local-secret-defaults.json') return false;
+  const relativePath = relative(root, target);
+  if (!relativePath || relativePath.startsWith('..') || relativePath.includes(`..${sep}`)) return false;
+  const normalized = relativePath.replaceAll('\\', '/');
+  if (normalized.startsWith('public/')) return true;
+  if (normalized.startsWith('src/')) {
+    if (!normalized.endsWith('.js')) return false;
+    return !normalized.startsWith('src/server/') && !normalized.startsWith('src/secrets/');
+  }
+  return false;
+}
+
+async function handleLocalSecretDefaultsApi(response, root) {
+  try {
+    const payload = await readFile(join(root, 'public', 'local-secret-defaults.json'), 'utf8');
+    writeJson(response, 200, JSON.parse(payload));
+  } catch {
+    writeJson(response, 404, { error: 'local-secret-defaults-not-found' });
+  }
 }
 
 async function handleRealCouncilApi(request, response, logger) {
@@ -154,11 +200,46 @@ function writeJson(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
+export function createLocalAccessToken() {
+  return randomBytes(32).toString('base64url');
+}
+
+function authorizeLocalRequest(request, response, token) {
+  if (!isLoopbackRequest(request) || !hasValidLocalAccessToken(request, token)) {
+    writeJson(response, 403, { error: 'local-access-token-required' });
+    return false;
+  }
+  return true;
+}
+
+function hasValidLocalAccessToken(request, token) {
+  const provided = getRequestAccessToken(request);
+  if (!provided) return false;
+  const expected = Buffer.from(token);
+  const actual = Buffer.from(provided);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+function getRequestAccessToken(request) {
+  const header = request.headers['x-mastermind-local-token'];
+  if (Array.isArray(header)) return header[0] ?? '';
+  if (header) return header;
+  try {
+    return new URL(request.url, 'http://localhost').searchParams.get('accessToken') ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function isLoopbackRequest(request) {
+  return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(request.socket.remoteAddress);
+}
+
 const isDirectRun =
   typeof process !== 'undefined' && process.argv?.[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isDirectRun) {
   const port = Number.parseInt(process.env.PORT ?? '4173', 10);
-  createAppServer().listen(port, () => {
-    console.log(`Mastermind council UI: http://localhost:${port}`);
+  createAppServer().listen(port, '127.0.0.1', () => {
+    console.log(`Mastermind council UI: http://127.0.0.1:${port}`);
   });
 }

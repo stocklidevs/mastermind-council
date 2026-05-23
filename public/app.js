@@ -133,6 +133,7 @@ let activeSpeechText = '';
 let blockedSpeechPlayback = null;
 let streamingSpeechBuffers = new Map();
 let localSecretDefaults = null;
+let localAccessTokenPromise = null;
 const LIVE_EVENT_TYPES = [
   'session.started',
   'preamble.started',
@@ -168,6 +169,33 @@ function logTtsClient(event, fields = {}) {
 
 function setVoiceResumeVisible(visible) {
   voiceResume.hidden = !visible;
+}
+
+async function loadLocalAccessToken() {
+  if (!localAccessTokenPromise) {
+    localAccessTokenPromise = fetch('/api/local-access-token', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok || !payload.token) throw new Error(payload.error ?? 'local-access-token-unavailable');
+        return payload.token;
+      })
+      .catch((tokenError) => {
+        localAccessTokenPromise = null;
+        throw tokenError;
+      });
+  }
+  return localAccessTokenPromise;
+}
+
+async function localAccessHeaders(headers = {}) {
+  return {
+    ...headers,
+    'X-Mastermind-Local-Token': await loadLocalAccessToken()
+  };
+}
+
+async function localAccessQuery() {
+  return `accessToken=${encodeURIComponent(await loadLocalAccessToken())}`;
 }
 
 function loadThemePreference() {
@@ -308,7 +336,10 @@ function persistSecretReferences() {
 
 async function hydrateLocalSecretDefaults() {
   try {
-    const response = await fetch('/public/local-secret-defaults.json', { cache: 'no-store' });
+    const response = await fetch('/api/local-secret-defaults', {
+      cache: 'no-store',
+      headers: await localAccessHeaders()
+    });
     if (!response.ok) return;
     localSecretDefaults = normalizeLocalSecretDefaults(await response.json());
     if (!localSecretDefaults) return;
@@ -1503,7 +1534,7 @@ async function prepareSpeechAudio(item) {
     });
     const response = await fetch('/api/tts/openai', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await localAccessHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         input: item.input,
         voice: item.voice,
@@ -1710,7 +1741,7 @@ async function runRealSession(question) {
   setSessionStatus('Calling real council', { initiating: true });
   const response = await fetch('/api/council/real', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await localAccessHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ question })
   });
   const payload = await response.json();
@@ -1739,6 +1770,7 @@ async function runLiveMockSession(question) {
   }
 
   setSessionStatus('Council awakening', { initiating: true });
+  const accessToken = await localAccessQuery();
   error.textContent = '';
   liveState = createLiveCouncilViewState(mentors, { originalQuestion: question });
   liveEvents = [];
@@ -1747,7 +1779,7 @@ async function runLiveMockSession(question) {
   const liveMode = runtimeMode.value === 'live-real' ? 'real' : 'mock';
   const configId = liveMode === 'real' ? await createLiveConfigId() : '';
   const liveMembers = encodeURIComponent(JSON.stringify(publicMentorsForLiveRequest()));
-  const url = `/api/council/live?mode=${liveMode}&maxTurns=${sessionSettings.maxTurns}&preambleEnabled=${
+  const url = `/api/council/live?${accessToken}&mode=${liveMode}&maxTurns=${sessionSettings.maxTurns}&preambleEnabled=${
     sessionSettings.preambleEnabled ? '1' : '0'
   }&synthesisProviderId=${encodeURIComponent(sessionSettings.synthesisProviderId)}&synthesisModelId=${encodeURIComponent(
     sessionSettings.synthesisModelId
@@ -1761,7 +1793,7 @@ async function runLiveMockSession(question) {
 async function createLiveConfigId() {
   const response = await fetch('/api/council/live-config', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await localAccessHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ secretReferences })
   });
   const payload = await response.json();
@@ -1825,19 +1857,25 @@ async function runLiveRealClarificationResume(context) {
   const configId = await createLiveConfigId();
   return new Promise((resolve, reject) => {
     const liveMembers = encodeURIComponent(JSON.stringify(publicMentorsForLiveRequest()));
-    const url = `/api/council/live?mode=real&maxTurns=${sessionSettings.maxTurns}&preambleEnabled=0&synthesisProviderId=${encodeURIComponent(
-      sessionSettings.synthesisProviderId
-    )}&synthesisModelId=${encodeURIComponent(sessionSettings.synthesisModelId)}&configId=${encodeURIComponent(
-      configId
-    )}&members=${liveMembers}&clarificationAnswer=${encodeURIComponent(
-      context.clarificationAnswer
-    )}&question=${encodeURIComponent(context.originalQuestion)}`;
-    liveSource = new EventSource(url);
-    attachLiveSourceHandlers(liveSource, {
-      onComplete: resolve,
-      onAwaitingClarification: resolve,
-      onError: reject
-    });
+    void localAccessQuery()
+      .then((accessToken) => {
+        const url = `/api/council/live?${accessToken}&mode=real&maxTurns=${
+          sessionSettings.maxTurns
+        }&preambleEnabled=0&synthesisProviderId=${encodeURIComponent(
+          sessionSettings.synthesisProviderId
+        )}&synthesisModelId=${encodeURIComponent(sessionSettings.synthesisModelId)}&configId=${encodeURIComponent(
+          configId
+        )}&members=${liveMembers}&clarificationAnswer=${encodeURIComponent(
+          context.clarificationAnswer
+        )}&question=${encodeURIComponent(context.originalQuestion)}`;
+        liveSource = new EventSource(url);
+        attachLiveSourceHandlers(liveSource, {
+          onComplete: resolve,
+          onAwaitingClarification: resolve,
+          onError: reject
+        });
+      })
+      .catch(reject);
   });
 }
 
