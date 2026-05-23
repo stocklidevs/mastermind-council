@@ -1,7 +1,7 @@
 # Mastermind
 
 ![Tests](https://img.shields.io/badge/tests-191%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.21-blue)
+![Version](https://img.shields.io/badge/version-0.25.22-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -94,6 +94,12 @@ Useful docs:
 - [Local Storage Notes](docs/local-storage.md)
 - [Voice Synchronization Notes](docs/voice-synchronization.md)
 - [Research Notes](docs/reference/mastermind-llm-council-research.md)
+- [Public Release Checklist](docs/public-release-checklist.md)
+
+Community files:
+
+- [Contributing Guide](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
 
 ## License
 
