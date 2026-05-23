@@ -1,7 +1,7 @@
 # Mastermind
 
 ![Tests](https://img.shields.io/badge/tests-184%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.15-blue)
+![Version](https://img.shields.io/badge/version-0.25.16-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -211,6 +211,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Live real TTS now resolves streamed mentor utterances by the live transcript mentor id, so `mentor.done` events actually queue the spoken audio.
 - Live council voice playback now uses progressive sentence-level speech chunks, prefetches audio while text continues streaming, and marks the transcript segment currently being read.
 - Real mentor prompts now emphasize prose-first, embodied mentor speech and discourage generic assistant list-heavy answers unless the user explicitly asks for that format.
+- The council mode selector is removed in favor of Live Real Council as the primary experience, local 1Password defaults load silently, and the light/dark theme preference persists locally.
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Prompt/input cache capability display for provider/model combinations that support it.
@@ -259,7 +260,7 @@ npm.cmd run serve
 
 Then open `http://localhost:4173`.
 
-Use the council mode selector to choose `Mock council`, `Live mock council`, `Live real council`, or `Real council`. Real council calls the local Node endpoint at `/api/council/real`; keys still resolve only in Node. Live mock and live real council call `/api/council/live` and stream public-safe server-sent events.
+The app now convenes `Live real council` by default. It calls the local Node endpoint at `/api/council/live` and streams public-safe server-sent events while keys resolve only in Node.
 
 When the local server handles real council requests, it emits JSON-line diagnostic events to stdout. These logs include request, provider start, provider completion, and provider error events with mentor/provider/model identifiers, latency, contribution length, and session ids. Secrets and `op://` references are never written to the logs.
 
@@ -271,7 +272,7 @@ OpenAI voice playback is optional and enabled by default for fresh sessions. You
 
 Provider API keys can be set from the Providers tab. Use the 1Password defaults helper with your vault and optional account domain to apply references such as `op://Your Vault/OpenAI API Key/credential`, `op://Your Vault/Anthropic API Key/credential`, and `op://Your Vault/xAI API Key/credential` across configured providers. The references and account domain are stored locally in the browser; resolved keys remain server-side only.
 
-For a private local machine, copy `public/local-secret-defaults.example.json` to `public/local-secret-defaults.json` and put your real vault, account, and item names there. That file is ignored by Git. When present, the app loads it on startup and restores the local 1Password references that should be used by the Providers tab.
+For a private local machine, copy `public/local-secret-defaults.example.json` to `public/local-secret-defaults.json` and put your real vault, account, and item names there. That file is ignored by Git. When present, the app loads it on startup and restores the local 1Password references that should be used by the Providers tab without changing the visible session status.
 
 Run local provider smoke checks:
 
@@ -354,6 +355,7 @@ Expected early workflow:
 37. Queue TTS for completed transcripts. Done for mock and non-streaming real council sessions.
 38. Synchronize live text and voice. Done for progressive sentence-level TTS prefetch and active transcript voice state.
 39. Improve mentor speech style. Done for prose-first, role-embodied real mentor prompt guidance.
+40. Simplify runtime and persist theme. Done for Live Real Council default, silent local 1Password defaults, and stored light/dark mode.
 
 ## License
 

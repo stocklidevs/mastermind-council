@@ -54,7 +54,7 @@ import { createSpeechChunks, createStreamingSpeechBuffer } from '/src/web/tts-pl
 const form = document.querySelector('#question-form');
 const input = document.querySelector('#question-input');
 const error = document.querySelector('#question-error');
-const runtimeMode = document.querySelector('#runtime-mode');
+const runtimeMode = { value: 'live-real' };
 const roster = document.querySelector('#council-roster');
 const transcript = document.querySelector('#transcript');
 const synthesis = document.querySelector('#synthesis');
@@ -79,6 +79,7 @@ const CONSULTATIONS_STORAGE_KEY = 'mastermind.consultations';
 const CURRENT_MENTORS_STORAGE_KEY = 'mastermind.currentMentors';
 const SECRET_REFERENCES_STORAGE_KEY = 'mastermind.secretReferences';
 const TTS_SETTINGS_STORAGE_KEY = 'mastermind.ttsSettings';
+const THEME_STORAGE_KEY = 'mastermind.theme';
 const ONE_PASSWORD_ACCOUNT = '';
 const OPENAI_TTS_VOICES = [
   'alloy',
@@ -166,6 +167,24 @@ function logTtsClient(event, fields = {}) {
 
 function setVoiceResumeVisible(visible) {
   voiceResume.hidden = !visible;
+}
+
+function loadThemePreference() {
+  try {
+    const value = localStorage.getItem(THEME_STORAGE_KEY);
+    return value === 'dark' || value === 'light' ? value : 'light';
+  } catch {
+    return 'light';
+  }
+}
+
+function applyThemePreference(theme) {
+  document.documentElement.dataset.theme = theme;
+  themeToggle.textContent = theme === 'dark' ? 'Light' : 'Dark';
+}
+
+function persistThemePreference(theme) {
+  localStorage.setItem(THEME_STORAGE_KEY, theme);
 }
 
 function effectiveProviders() {
@@ -280,7 +299,6 @@ async function hydrateLocalSecretDefaults() {
     secretReferences = applyLocalSecretDefaults(secretReferences, effectiveProviders(), localSecretDefaults);
     persistSecretReferences();
     renderConfiguration();
-    setSessionStatus('Local 1Password defaults loaded');
   } catch {
     localSecretDefaults = null;
   }
@@ -1977,13 +1995,7 @@ form.addEventListener('submit', async (event) => {
   try {
     pendingUserQuestion = validation.question;
     const questionForCouncil = buildFollowUpQuestion(validation.question);
-    if (runtimeMode.value === 'real') {
-      await runRealSession(questionForCouncil);
-    } else if (runtimeMode.value === 'live-mock' || runtimeMode.value === 'live-real') {
-      await runLiveMockSession(questionForCouncil);
-    } else {
-      runMockSession(questionForCouncil);
-    }
+    await runLiveMockSession(questionForCouncil);
   } catch (runError) {
     setSessionStatus('Session failed');
     error.textContent = runError.message;
@@ -2032,8 +2044,8 @@ synthesis.addEventListener('submit', async (event) => {
 themeToggle.addEventListener('click', () => {
   const root = document.documentElement;
   const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
-  root.dataset.theme = next;
-  themeToggle.textContent = next === 'dark' ? 'Light' : 'Dark';
+  applyThemePreference(next);
+  persistThemePreference(next);
 });
 
 voiceResume.addEventListener('click', () => {
@@ -2369,6 +2381,7 @@ drawerContent.addEventListener('submit', (event) => {
   }
 });
 
+applyThemePreference(loadThemePreference());
 activateWorkspacePanel('deliberation');
 renderConfiguration();
 void hydrateLocalSecretDefaults();

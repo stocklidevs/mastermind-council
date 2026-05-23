@@ -9,11 +9,11 @@ const stylesCss = await readFile(new URL('../../public/styles.css', import.meta.
 test('renders provider and mentor configuration landmarks', () => {
   assert.match(indexHtml, /id="settings-toggle"/);
   assert.match(indexHtml, /id="voice-resume"/);
-  assert.match(indexHtml, /id="runtime-mode"/);
   assert.match(indexHtml, /id="settings-drawer"/);
-  assert.match(indexHtml, /Live real council/);
   assert.match(indexHtml, /id="drawer-tabs"/);
   assert.match(indexHtml, /id="drawer-content"/);
+  assert.doesNotMatch(indexHtml, /id="runtime-mode"/);
+  assert.doesNotMatch(indexHtml, /Council mode/);
   assert.doesNotMatch(indexHtml, /class="configuration-panel"/);
 });
 
@@ -23,7 +23,11 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /applyLiveCouncilEvent/);
   assert.match(appJs, /createClarificationResumeEvents/);
   assert.match(appJs, /data-clarification-form/);
-  assert.match(appJs, /runtimeMode/);
+  assert.match(appJs, /runtimeMode = \{ value: 'live-real' \}/);
+  assert.match(appJs, /THEME_STORAGE_KEY/);
+  assert.match(appJs, /loadThemePreference/);
+  assert.match(appJs, /persistThemePreference/);
+  assert.doesNotMatch(appJs, /Local 1Password defaults loaded/);
   assert.match(appJs, /addCustomProvider/);
   assert.match(appJs, /addCustomModel/);
   assert.match(appJs, /buildSettingsDrawerViewModel/);
