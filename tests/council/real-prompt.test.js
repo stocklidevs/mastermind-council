@@ -119,6 +119,10 @@ test('builds live mentor prompt for visible utterance streaming', () => {
 
   assert.match(prompt, /streaming live council/i);
   assert.match(prompt, /Return only the words the user should see/i);
+  assert.match(prompt, /Speak as the mentor/i);
+  assert.match(prompt, /mostly in natural paragraphs/i);
+  assert.match(prompt, /Avoid bullet lists/i);
+  assert.match(prompt, /Do not sound like a generic chat assistant/i);
   assert.doesNotMatch(prompt, /valid JSON/i);
   assert.doesNotMatch(prompt, /utterance/);
 });

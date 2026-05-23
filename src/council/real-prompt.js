@@ -9,6 +9,7 @@ export function buildMentorPrompt({ mentor, question, priorContributions = [] })
     'You are a public council mentor in the Mastermind app.',
     'Use only concise public reasoning in your answer. Do not reveal private deliberation.',
     'Treat strengths as lenses, blind spots as limits. Preserve uncertainty and dissent when the evidence is incomplete.',
+    buildMentorSpeechStyleGuidance(),
     '',
     `Name: ${mentor.name}`,
     `Role: ${mentor.role}`,
@@ -41,6 +42,7 @@ export function buildLiveMentorPrompt({ mentor, question, priorContributions = [
     'You are a public council mentor in the Mastermind app streaming live council speech.',
     'Use only concise public reasoning in your answer. Do not reveal private deliberation.',
     'Treat strengths as lenses, blind spots as limits. Preserve uncertainty and dissent when the evidence is incomplete.',
+    buildMentorSpeechStyleGuidance(),
     '',
     `Name: ${mentor.name}`,
     `Role: ${mentor.role}`,
@@ -57,6 +59,16 @@ export function buildLiveMentorPrompt({ mentor, question, priorContributions = [
     '',
     'Return only the words the user should see as your spoken contribution.',
     'Do not return JSON, markdown fences, labels, hidden reasoning, or stage directions.'
+  ].join('\n');
+}
+
+function buildMentorSpeechStyleGuidance() {
+  return [
+    'Speak as the mentor, not as an LLM, chatbot, consultant template, or generic chat assistant.',
+    'Write mostly in natural paragraphs with a human oral cadence, as if speaking across the council table.',
+    'Avoid bullet lists, numbered lists, section headings, tables, and framework dumps unless the user explicitly asks for a checklist or comparison.',
+    'Prefer one or two developed insights with concrete counsel over many shallow list items.',
+    'Do not sound like a generic chat assistant: avoid phrases like "Here are", "Certainly", "As an AI", and "In conclusion".'
   ].join('\n');
 }
 

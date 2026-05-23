@@ -1,7 +1,7 @@
 # Mastermind
 
 ![Tests](https://img.shields.io/badge/tests-184%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.14-blue)
+![Version](https://img.shields.io/badge/version-0.25.15-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -210,6 +210,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Voice playback now queues completed mentor contributions from mock and non-streaming real sessions, not only live council streams.
 - Live real TTS now resolves streamed mentor utterances by the live transcript mentor id, so `mentor.done` events actually queue the spoken audio.
 - Live council voice playback now uses progressive sentence-level speech chunks, prefetches audio while text continues streaming, and marks the transcript segment currently being read.
+- Real mentor prompts now emphasize prose-first, embodied mentor speech and discourage generic assistant list-heavy answers unless the user explicitly asks for that format.
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Prompt/input cache capability display for provider/model combinations that support it.
@@ -352,6 +353,7 @@ Expected early workflow:
 36. Diagnose browser TTS playback. Done for safe client logs and user-gesture recovery when autoplay blocks generated speech.
 37. Queue TTS for completed transcripts. Done for mock and non-streaming real council sessions.
 38. Synchronize live text and voice. Done for progressive sentence-level TTS prefetch and active transcript voice state.
+39. Improve mentor speech style. Done for prose-first, role-embodied real mentor prompt guidance.
 
 ## License
 
