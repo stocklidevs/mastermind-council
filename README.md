@@ -1,7 +1,7 @@
 # Mastermind
 
 ![Tests](https://img.shields.io/badge/tests-184%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.16-blue)
+![Version](https://img.shields.io/badge/version-0.25.17-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -212,6 +212,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - Live council voice playback now uses progressive sentence-level speech chunks, prefetches audio while text continues streaming, and marks the transcript segment currently being read.
 - Real mentor prompts now emphasize prose-first, embodied mentor speech and discourage generic assistant list-heavy answers unless the user explicitly asks for that format.
 - The council mode selector is removed in favor of Live Real Council as the primary experience, local 1Password defaults load silently, and the light/dark theme preference persists locally.
+- The initiating session status now uses a faster, brighter sweep plus a glow pulse so background work is more visible.
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
 - Prompt/input cache capability display for provider/model combinations that support it.
@@ -356,6 +357,7 @@ Expected early workflow:
 38. Synchronize live text and voice. Done for progressive sentence-level TTS prefetch and active transcript voice state.
 39. Improve mentor speech style. Done for prose-first, role-embodied real mentor prompt guidance.
 40. Simplify runtime and persist theme. Done for Live Real Council default, silent local 1Password defaults, and stored light/dark mode.
+41. Strengthen initiating status feedback. Done for faster sweep, brighter status fill, and glow pulse.
 
 ## License
 

@@ -132,6 +132,8 @@ test('illuminates the session status while the council is initiating', () => {
   assert.match(appJs, /status\.classList\.remove\('is-initiating'\)/);
   assert.match(stylesCss, /\.session-status\.is-initiating::after/);
   assert.match(stylesCss, /@keyframes status-sweep/);
+  assert.match(stylesCss, /@keyframes status-pulse/);
+  assert.match(stylesCss, /animation:\s*status-sweep 760ms/);
 });
 
 test('defines persistent workspace layout affordances', () => {
