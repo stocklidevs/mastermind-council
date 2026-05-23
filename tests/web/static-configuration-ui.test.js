@@ -72,6 +72,14 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /data-delete-consultation/);
   assert.match(appJs, /data-export-current-consultation/);
   assert.match(appJs, /data-export-consultation/);
+  assert.match(appJs, /data-export-local-backup/);
+  assert.match(appJs, /data-import-local-backup/);
+  assert.match(appJs, /data-local-backup-file/);
+  assert.match(appJs, /createLocalBackup/);
+  assert.match(appJs, /parseLocalBackup/);
+  assert.match(appJs, /restoreLocalBackup/);
+  assert.match(appJs, /PROVIDER_CATALOG_STORAGE_KEY/);
+  assert.match(appJs, /persistProviderCatalogState/);
   assert.match(appJs, /buildConsultationPdfHtml/);
   assert.match(appJs, /CONSULTATIONS_STORAGE_KEY/);
   assert.match(appJs, /appendConsultationExchange/);

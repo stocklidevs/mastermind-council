@@ -1,7 +1,7 @@
 # Mastermind
 
-![Tests](https://img.shields.io/badge/tests-184%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.17-blue)
+![Tests](https://img.shields.io/badge/tests-188%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.25.18-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -17,6 +17,7 @@ Current artifacts:
 
 - [Statement of Work](docs/sow.md)
 - [Research Notes](docs/reference/mastermind-llm-council-research.md)
+- [Local Storage Notes](docs/local-storage.md)
 - [Voice Synchronization Notes](docs/voice-synchronization.md)
 - [Version](VERSION)
 - [Spec Kit Constitution](.specify/memory/constitution.md)
@@ -215,6 +216,7 @@ See [docs/sow.md](docs/sow.md) for the full scope of work, requirements, definit
 - The initiating session status now uses a faster, brighter sweep plus a glow pulse so background work is more visible.
 - The top-right session status now illuminates with a left-to-right sweep while a council is initiating, then settles once live activity, completion, or failure takes over.
 - 1Password secret resolution now carries the account domain through `op read --account`, matching the local team account used by the Mastermind API key items.
+- Local storage now persists custom provider catalogs and can export/import a local JSON backup for consultations, presets, mentors, provider settings, TTS settings, theme, and safe secret references.
 - Prompt/input cache capability display for provider/model combinations that support it.
 - Saved sessions and council presets.
 
@@ -274,6 +276,8 @@ OpenAI voice playback is optional and enabled by default for fresh sessions. You
 Provider API keys can be set from the Providers tab. Use the 1Password defaults helper with your vault and optional account domain to apply references such as `op://Your Vault/OpenAI API Key/credential`, `op://Your Vault/Anthropic API Key/credential`, and `op://Your Vault/xAI API Key/credential` across configured providers. The references and account domain are stored locally in the browser; resolved keys remain server-side only.
 
 For a private local machine, copy `public/local-secret-defaults.example.json` to `public/local-secret-defaults.json` and put your real vault, account, and item names there. That file is ignored by Git. When present, the app loads it on startup and restores the local 1Password references that should be used by the Providers tab without changing the visible session status.
+
+Local backups are available from Session settings. `Export JSON` downloads saved consultations, session history, council presets, current mentors, custom providers, voice settings, theme, and local secret references. The backup path accepts environment-variable names and 1Password references, but blocks plaintext API-key-looking values so resolved secrets do not travel through browser storage.
 
 Run local provider smoke checks:
 
@@ -358,6 +362,7 @@ Expected early workflow:
 39. Improve mentor speech style. Done for prose-first, role-embodied real mentor prompt guidance.
 40. Simplify runtime and persist theme. Done for Live Real Council default, silent local 1Password defaults, and stored light/dark mode.
 41. Strengthen initiating status feedback. Done for faster sweep, brighter status fill, and glow pulse.
+42. Improve local storage. Done for persistent custom providers and local backup export/import with plaintext-secret guards.
 
 ## License
 

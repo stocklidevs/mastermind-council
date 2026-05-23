@@ -11,7 +11,6 @@ import {
   deleteUserCouncilPreset,
   getEffectiveProviders,
   getModelsForProvider,
-  providers,
   runCouncilSession,
   saveUserCouncilPreset,
   updateMentorCharacteristics,
@@ -44,6 +43,7 @@ import {
   validateClarificationAnswer
 } from '/src/web/live-view.js';
 import { buildConsultationPdfHtml, buildCurrentConsultationExport } from '/src/web/pdf-export.js';
+import { createLocalBackup, parseLocalBackup, restoreLocalBackup } from '/src/web/local-backup.js';
 import {
   applyLocalSecretDefaults,
   buildOnePasswordReferenceFromDefaults,
@@ -77,6 +77,7 @@ const USER_PRESETS_STORAGE_KEY = 'mastermind.userCouncilPresets';
 const SESSION_HISTORY_STORAGE_KEY = 'mastermind.sessionHistory';
 const CONSULTATIONS_STORAGE_KEY = 'mastermind.consultations';
 const CURRENT_MENTORS_STORAGE_KEY = 'mastermind.currentMentors';
+const PROVIDER_CATALOG_STORAGE_KEY = 'mastermind.providerCatalog';
 const SECRET_REFERENCES_STORAGE_KEY = 'mastermind.secretReferences';
 const TTS_SETTINGS_STORAGE_KEY = 'mastermind.ttsSettings';
 const THEME_STORAGE_KEY = 'mastermind.theme';
@@ -99,7 +100,7 @@ const OPENAI_TTS_VOICES = [
 const LEGACY_MODEL_IDS = {
   'anthropic:claude-sonnet-4': 'claude-sonnet-4-20250514'
 };
-let catalogState = createProviderCatalogState();
+let catalogState = loadProviderCatalogState();
 let mentors = loadCurrentMentors();
 let ttsSettings = loadTtsSettings();
 let userPresets = loadUserPresets();
@@ -191,6 +192,21 @@ function effectiveProviders() {
   return getEffectiveProviders(catalogState);
 }
 
+function loadProviderCatalogState() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PROVIDER_CATALOG_STORAGE_KEY) ?? 'null');
+    return createProviderCatalogState({
+      customProviders: Array.isArray(parsed?.customProviders) ? parsed.customProviders : []
+    });
+  } catch {
+    return createProviderCatalogState();
+  }
+}
+
+function persistProviderCatalogState() {
+  localStorage.setItem(PROVIDER_CATALOG_STORAGE_KEY, JSON.stringify(catalogState));
+}
+
 function loadUserPresets() {
   try {
     const parsed = JSON.parse(localStorage.getItem(USER_PRESETS_STORAGE_KEY) ?? '[]');
@@ -250,7 +266,7 @@ function persistMentors() {
 
 function defaultSecretReferences() {
   return Object.fromEntries(
-    providers.map((provider) => [
+    effectiveProviders().map((provider) => [
       provider.id,
       {
         providerId: provider.id,
@@ -743,6 +759,17 @@ function renderSessionSettings() {
               : '<p class="drawer-note">Completed sessions will appear here.</p>'
           }
         </div>
+      </div>
+      <div class="session-history local-backup">
+        <div class="history-heading">
+          <h3>Local backup</h3>
+          <div class="history-actions">
+            <button type="button" data-export-local-backup>Export JSON</button>
+            <button type="button" data-import-local-backup>Import JSON</button>
+          </div>
+        </div>
+        <input type="file" accept="application/json,.json" data-local-backup-file hidden />
+        <p class="drawer-note">Backs up saved consultations, presets, mentors, custom providers, voice settings, theme, and secret references. Resolved API keys are never included.</p>
       </div>
     </section>
   `;
@@ -1969,6 +1996,53 @@ function exportCurrentConsultationPdf() {
   );
 }
 
+function exportLocalBackup() {
+  try {
+    const backup = createLocalBackup(localStorage);
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = `mastermind-local-backup-${date}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setSessionStatus('Local backup exported');
+  } catch (backupError) {
+    setSessionStatus('Local backup blocked');
+    error.textContent = backupError.message;
+  }
+}
+
+async function importLocalBackup(file) {
+  if (!file) return;
+  try {
+    const backup = parseLocalBackup(await file.text());
+    const result = restoreLocalBackup(backup, localStorage);
+    reloadLocalStateFromStorage();
+    setSessionStatus(`Local backup imported (${result.restoredKeys.length} sections)`);
+    error.textContent = '';
+  } catch (backupError) {
+    setSessionStatus('Local backup failed');
+    error.textContent = backupError.message;
+  }
+}
+
+function reloadLocalStateFromStorage() {
+  catalogState = loadProviderCatalogState();
+  mentors = loadCurrentMentors();
+  ttsSettings = loadTtsSettings();
+  userPresets = loadUserPresets();
+  sessionHistory = loadSessionHistory();
+  consultations = loadConsultations();
+  secretReferences = loadSecretReferences();
+  selectedMentorId = mentors.some((mentor) => mentor.id === selectedMentorId) ? selectedMentorId : mentors[0]?.id;
+  applyThemePreference(loadThemePreference());
+  renderConfiguration();
+}
+
 function buildFollowUpQuestion(question) {
   const consultation = consultations.find((item) => item.id === activeConsultationId);
   if (!consultation?.exchanges?.length) return question;
@@ -2206,6 +2280,12 @@ function parseIdentityValue(field, value) {
 }
 
 drawerContent.addEventListener('change', (event) => {
+  if (event.target.dataset.localBackupFile !== undefined) {
+    void importLocalBackup(event.target.files?.[0]);
+    event.target.value = '';
+    return;
+  }
+
   const secretProviderId = event.target.dataset.secretMode;
   if (secretProviderId) {
     secretReferences[secretProviderId] = {
@@ -2272,6 +2352,16 @@ drawerContent.addEventListener('change', (event) => {
 });
 
 drawerContent.addEventListener('click', (event) => {
+  if (event.target.dataset.exportLocalBackup !== undefined) {
+    exportLocalBackup();
+    return;
+  }
+
+  if (event.target.dataset.importLocalBackup !== undefined) {
+    drawerContent.querySelector('[data-local-backup-file]')?.click();
+    return;
+  }
+
   if (event.target.dataset.clearSessionHistory !== undefined) {
     sessionHistory = clearSessionHistory();
     persistSessionHistory();
@@ -2370,6 +2460,7 @@ drawerContent.addEventListener('submit', (event) => {
       catalogState = addCustomProvider(catalogState, data);
       selectedModelProviderId = data.id.toLowerCase();
       providerDraftErrors = {};
+      persistProviderCatalogState();
     }
     renderConfiguration();
     return;
@@ -2377,6 +2468,7 @@ drawerContent.addEventListener('submit', (event) => {
 
   if (event.target.dataset.customModelForm !== undefined) {
     catalogState = addCustomModel(catalogState, selectedModelProviderId, data);
+    persistProviderCatalogState();
     renderConfiguration();
   }
 });
