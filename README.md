@@ -1,7 +1,7 @@
 # Mastermind
 
-![Tests](https://img.shields.io/badge/tests-191%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-0.25.22-blue)
+![Tests](https://img.shields.io/badge/tests-193%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.25.23-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Spec Driven](https://img.shields.io/badge/spec--driven-Spec%20Kit-purple)
 
@@ -22,7 +22,7 @@ The product goal is a ceremonial but practical strategy room: different model st
 - Built-in provider catalog for OpenAI, Anthropic, Gemini, OpenRouter, xAI, Groq, Novita, and local mock mentors.
 - Custom OpenAI-compatible provider and model entries.
 - Optional 1Password references or environment variables for provider API keys.
-- Preamble clarification before deliberation, plus follow-up consultation sessions.
+- Preamble clarification before deliberation, plus automatic ongoing consultation sessions for follow-up questions.
 - Structured synthesis with next actions, assumptions, unresolved questions, minority views, and mentor grounding.
 - OpenAI TTS playback with per-mentor voice controls and progressive sentence-level playback.
 - Local saved consultations, PDF export, JSON backup/import, dark mode, and theme persistence.

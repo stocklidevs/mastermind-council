@@ -72,6 +72,10 @@ test('wires safe configuration helpers into the browser app', () => {
   assert.match(appJs, /data-clear-session-history/);
   assert.match(appJs, /data-open-consultation/);
   assert.match(appJs, /data-delete-consultation/);
+  assert.match(appJs, /data-new-consultation/);
+  assert.match(appJs, /saveOrStartActiveConsultation/);
+  assert.match(appJs, /buildConsultationFollowUpPrompt/);
+  assert.match(appJs, /Continue consultation/);
   assert.match(appJs, /data-export-current-consultation/);
   assert.match(appJs, /data-export-consultation/);
   assert.match(appJs, /data-export-local-backup/);

@@ -4,7 +4,7 @@ Mastermind is local-first for user-owned council state. The browser stores only 
 
 Stored browser sections:
 
-- `mastermind.consultations`: saved council consultations and follow-up exchanges.
+- `mastermind.consultations`: saved council consultations and follow-up exchanges. A completed council run automatically starts or updates the active consultation, and follow-up prompts use prior public questions, visible mentor contributions, and synthesis artifacts for continuity.
 - `mastermind.sessionHistory`: recent completed session summaries.
 - `mastermind.userCouncilPresets`: user-saved mentor rosters.
 - `mastermind.currentMentors`: the active mentor roster and model assignments.

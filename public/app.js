@@ -30,6 +30,7 @@ import {
 } from '/src/web/configuration-view.js';
 import {
   appendConsultationExchange,
+  buildConsultationFollowUpPrompt,
   clearSessionHistory,
   createConsultationRecord,
   createSessionHistoryRecord,
@@ -71,6 +72,7 @@ const settingsClose = document.querySelector('#settings-close');
 const settingsDrawer = document.querySelector('#settings-drawer');
 const drawerTabs = document.querySelector('#drawer-tabs');
 const drawerContent = document.querySelector('#drawer-content');
+const questionFormLabel = document.querySelector('label[for="question-input"]');
 
 const scenario = getScenario('dissent');
 const USER_PRESETS_STORAGE_KEY = 'mastermind.userCouncilPresets';
@@ -743,7 +745,10 @@ function renderSessionSettings() {
         <div class="history-heading">
           <h3>Saved consultations</h3>
           <div class="history-actions">
-            <button type="button" data-save-consultation ${lastSessionExchange ? '' : 'disabled'}>Save current</button>
+            <button type="button" data-save-consultation ${lastSessionExchange ? '' : 'disabled'}>${
+              activeConsultationId ? 'Saved' : 'Save current'
+            }</button>
+            <button type="button" data-new-consultation ${activeConsultationId ? '' : 'disabled'}>New</button>
             <button type="button" data-export-current-consultation ${lastSessionExchange ? '' : 'disabled'}>Export PDF</button>
           </div>
         </div>
@@ -1906,6 +1911,7 @@ function runMockSession(question) {
 function saveSessionHistoryFromViewModel(model, mode) {
   const visibleQuestion = pendingUserQuestion ?? model.question;
   lastSessionExchange = {
+    id: createExchangeId(),
     question: visibleQuestion,
     transcript: model.rounds.flatMap((round) => round.items),
     synthesis: model.synthesis
@@ -1919,12 +1925,13 @@ function saveSessionHistoryFromViewModel(model, mode) {
   });
   sessionHistory = saveSessionHistoryRecord(sessionHistory, record);
   persistSessionHistory();
-  saveOrAppendActiveConsultation(mode, lastSessionExchange);
+  saveOrStartActiveConsultation(mode, lastSessionExchange);
 }
 
 function saveSessionHistoryFromLiveState(state, mode) {
   const visibleQuestion = pendingUserQuestion ?? state.originalQuestion;
   lastSessionExchange = {
+    id: createExchangeId(),
     question: visibleQuestion,
     transcript: state.rounds.flatMap((round) => round.items),
     synthesis: state.synthesis
@@ -1938,45 +1945,48 @@ function saveSessionHistoryFromLiveState(state, mode) {
   });
   sessionHistory = saveSessionHistoryRecord(sessionHistory, record);
   persistSessionHistory();
-  saveOrAppendActiveConsultation(mode, lastSessionExchange);
+  saveOrStartActiveConsultation(mode, lastSessionExchange);
 }
 
-function saveOrAppendActiveConsultation(mode, exchange) {
-  if (!activeConsultationId) return;
-  consultations = consultations.map((record) =>
-    record.id === activeConsultationId
-      ? appendConsultationExchange(
-          {
-            ...record,
-            mentors,
-            sessionSettings,
-            mode
-          },
-          exchange
-        )
-      : record
-  );
+function createExchangeId() {
+  return `exchange-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function saveOrStartActiveConsultation(mode, exchange) {
+  if (!activeConsultationId) {
+    const record = createConsultationRecord({
+      title: exchange.question,
+      mode,
+      mentors,
+      sessionSettings,
+      exchange
+    });
+    consultations = getSavedConsultations([record, ...consultations], 20);
+    activeConsultationId = record.id;
+    updateConsultationInputState(record);
+  } else {
+    consultations = consultations.map((record) =>
+      record.id === activeConsultationId
+        ? appendConsultationExchange(
+            {
+              ...record,
+              mentors,
+              sessionSettings,
+              mode
+            },
+            exchange
+          )
+        : record
+    );
+    updateConsultationInputState(consultations.find((record) => record.id === activeConsultationId));
+  }
   persistConsultations();
   renderDrawer();
 }
 
 function saveCurrentConsultation() {
   if (!lastSessionExchange) return;
-  if (activeConsultationId) {
-    saveOrAppendActiveConsultation(runtimeMode.value, lastSessionExchange);
-    return;
-  }
-  const record = createConsultationRecord({
-    title: lastSessionExchange.question,
-    mode: runtimeMode.value,
-    mentors,
-    sessionSettings,
-    exchange: lastSessionExchange
-  });
-  consultations = getSavedConsultations([record, ...consultations], 20);
-  activeConsultationId = record.id;
-  persistConsultations();
-  renderDrawer();
+  saveOrStartActiveConsultation(runtimeMode.value, lastSessionExchange);
 }
 
 function openConsultation(id) {
@@ -1996,15 +2006,25 @@ function openConsultation(id) {
       }
     : null;
   input.value = '';
-  input.placeholder = `Follow up on: ${record.title}`;
+  updateConsultationInputState(record);
   setSessionStatus(`Consultation loaded: ${record.title}`);
   persistMentors();
+  renderConfiguration();
+}
+
+function startNewConsultation() {
+  activeConsultationId = null;
+  lastSessionExchange = null;
+  input.value = '';
+  updateConsultationInputState(null);
+  setSessionStatus('Ready for a new consultation');
   renderConfiguration();
 }
 
 function deleteConsultation(id) {
   consultations = consultations.filter((item) => item.id !== id);
   if (activeConsultationId === id) activeConsultationId = null;
+  if (!activeConsultationId) updateConsultationInputState(null);
   persistConsultations();
   renderDrawer();
 }
@@ -2083,16 +2103,18 @@ function reloadLocalStateFromStorage() {
 
 function buildFollowUpQuestion(question) {
   const consultation = consultations.find((item) => item.id === activeConsultationId);
-  if (!consultation?.exchanges?.length) return question;
-  const prior = consultation.exchanges
-    .map(
-      (exchange, index) =>
-        `Exchange ${index + 1}: User asked "${exchange.question}". Latest synthesis: ${
-          exchange.synthesis?.mainAnswer ?? 'No synthesis recorded.'
-        }`
-    )
-    .join('\n');
-  return `This is a follow-up in an ongoing consultation. Use only this public prior context:\n${prior}\n\nFollow-up question: ${question}`;
+  return buildConsultationFollowUpPrompt(consultation, question);
+}
+
+function updateConsultationInputState(record) {
+  if (record) {
+    const exchangeCount = record.exchanges?.length ?? 0;
+    questionFormLabel.textContent = `Continue consultation: ${record.title}`;
+    input.placeholder = `Ask follow-up ${exchangeCount + 1} to the same council`;
+    return;
+  }
+  questionFormLabel.textContent = 'Bring a question to the table';
+  input.placeholder = "What decision deserves the council's attention?";
 }
 
 form.addEventListener('submit', async (event) => {
@@ -2421,6 +2443,11 @@ drawerContent.addEventListener('click', (event) => {
 
   if (event.target.dataset.saveConsultation !== undefined) {
     saveCurrentConsultation();
+    return;
+  }
+
+  if (event.target.dataset.newConsultation !== undefined) {
+    startNewConsultation();
     return;
   }
 

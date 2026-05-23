@@ -45,5 +45,5 @@ Turn the current recent-session history into a reusable consultation system. A c
 
 - Consultations are saved in browser `localStorage` under `mastermind.consultations`.
 - Opening a consultation restores the saved public mentor roster, runtime mode, and session settings.
-- Continuing a consultation sends prior public questions and latest synthesis summaries into the next council prompt while keeping the saved follow-up question readable.
+- Continuing a consultation sends prior public questions, visible mentor contributions, and synthesis artifacts into the next council prompt while keeping the saved follow-up question readable.
 - Recent one-off sessions remain separate from saved consultations.

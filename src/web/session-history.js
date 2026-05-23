@@ -60,10 +60,15 @@ export function createConsultationRecord({
 
 export function appendConsultationExchange(consultation, exchange = {}) {
   const createdAt = exchange.createdAt ?? new Date().toISOString();
+  const nextExchange = createConsultationExchange(exchange, createdAt);
+  const existingExchanges = consultation.exchanges ?? [];
+  const exchanges = existingExchanges.some((item) => item.id && item.id === nextExchange.id)
+    ? existingExchanges
+    : [...existingExchanges, nextExchange];
   return sanitizeRecord({
     ...consultation,
     updatedAt: createdAt,
-    exchanges: [...(consultation.exchanges ?? []), createConsultationExchange(exchange, createdAt)]
+    exchanges
   });
 }
 
@@ -77,8 +82,58 @@ export function getSavedConsultations(records = [], limit = 10) {
     .slice(0, limit);
 }
 
-function createConsultationExchange({ question = '', transcript = [], synthesis = null, clarificationAnswers = [], createdAt } = {}, fallbackDate) {
+export function buildConsultationFollowUpPrompt(consultation, question, { maxExchanges = 4, maxTranscriptItems = 5 } = {}) {
+  const exchanges = Array.isArray(consultation?.exchanges) ? consultation.exchanges.slice(-maxExchanges) : [];
+  if (!exchanges.length) return String(question ?? '').trim();
+
+  const prior = exchanges
+    .map((exchange, index) => {
+      const transcript = (exchange.transcript ?? [])
+        .filter((item) => item?.type === 'contribution' && item.utterance)
+        .slice(0, maxTranscriptItems)
+        .map((item) => `  - ${item.speakerName ?? 'Mentor'}: ${compactText(item.utterance, 700)}`)
+        .join('\n');
+      const synthesis = exchange.synthesis
+        ? [
+            `  - Synthesis: ${compactText(exchange.synthesis.mainAnswer, 900)}`,
+            ...(exchange.synthesis.nextActions?.length
+              ? [`  - Next actions: ${exchange.synthesis.nextActions.map((item) => compactText(item, 180)).join('; ')}`]
+              : []),
+            ...(exchange.synthesis.unresolvedQuestions?.length
+              ? [
+                  `  - Unresolved questions: ${exchange.synthesis.unresolvedQuestions
+                    .map((item) => compactText(item, 180))
+                    .join('; ')}`
+                ]
+              : [])
+          ].join('\n')
+        : '  - Synthesis: No synthesis recorded.';
+      return [
+        `Exchange ${index + 1}:`,
+        `  - User question: ${compactText(exchange.question, 500)}`,
+        transcript ? `  - Visible mentor contributions:\n${transcript}` : '  - Visible mentor contributions: None recorded.',
+        synthesis
+      ].join('\n');
+    })
+    .join('\n\n');
+
+  return [
+    'This is a follow-up in an ongoing consultation with the same council.',
+    'Use only the public prior context below. Do not invent hidden discussion, private chain-of-thought, or unavailable facts.',
+    'Treat the new question as the current task, while preserving useful continuity from earlier exchanges.',
+    '',
+    prior,
+    '',
+    `Follow-up question: ${String(question ?? '').trim()}`
+  ].join('\n');
+}
+
+function createConsultationExchange(
+  { id, question = '', transcript = [], synthesis = null, clarificationAnswers = [], createdAt } = {},
+  fallbackDate
+) {
   return sanitizeRecord({
+    id: id || `exchange-${Date.parse(createdAt ?? fallbackDate) || Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     question,
     createdAt: createdAt ?? fallbackDate,
     clarificationAnswers,
@@ -92,6 +147,11 @@ function publicMentor(mentor) {
     id: redact(mentor.id),
     name: redact(mentor.name),
     role: redact(mentor.role),
+    personality: redact(mentor.personality),
+    speakingStyle: redact(mentor.speakingStyle),
+    participationBehavior: redact(mentor.participationBehavior),
+    identity: sanitizeRecord(mentor.identity ?? {}),
+    voice: sanitizeRecord(mentor.voice ?? {}),
     providerId: redact(mentor.providerId),
     modelId: redact(mentor.modelId)
   };
@@ -114,4 +174,10 @@ function redact(value) {
     text = text.replaceAll(pattern, '[redacted]');
   }
   return text;
+}
+
+function compactText(value, limit) {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length <= limit) return text;
+  return `${text.slice(0, Math.max(0, limit - 1)).trim()}...`;
 }
